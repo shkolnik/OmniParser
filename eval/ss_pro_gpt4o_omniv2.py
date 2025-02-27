@@ -22,7 +22,7 @@ from models.utils import get_som_labeled_img, check_ocr_box, get_caption_model_p
 import torch
 from ultralytics import YOLO
 from PIL import Image
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
+device = 'cuda' if torch.cuda.is_available() else 'mps'
 SOM_MODEL_PATH='...'
 CAPTION_MODEL_PATH='...'
 som_model = get_yolo_model(SOM_MODEL_PATH)
