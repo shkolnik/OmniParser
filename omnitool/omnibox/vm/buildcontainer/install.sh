@@ -666,7 +666,7 @@ addDriver() {
   local folder=""
 
   case "${id,,}" in
-    "win11x64"* ) folder="w11/amd64" ;;
+    "aarch64"* ) folder="w11/amd64" ;;
   esac
 
   if [ -z "$folder" ]; then
@@ -725,7 +725,7 @@ addDrivers() {
   addDriver "$version" "$drivers" "$target" "qemupciserial" || return 1
 
   case "${version,,}" in
-    "win11x64"* | "win2025"* )
+    "aarch64"* | "win2025"* )
       # Workaround Virtio GPU driver bug
       local dst="$src/\$OEM\$/\$\$/Drivers"
       mkdir -p "$dst" || return 1

@@ -1,7 +1,7 @@
 {
     "Python": {
         "mirrors": [
-            "https://www.python.org/ftp/python/3.10.0/python-3.10.0-amd64.exe"
+            "https://www.python.org/ftp/python/3.13.2/python-3.13.2-arm64.exe"
         ],
         "alias": "python"
     },
@@ -49,7 +49,7 @@
     },
     "VS Code": {
         "mirrors": [
-            "https://update.code.visualstudio.com/latest/win32-x64-user/stable"
+            "https://update.code.visualstudio.com/latest/win32-arm64-user/stable"
         ],
         "alias": "code"
     },
@@ -62,7 +62,7 @@
     },
     "Caddy Proxy": {
         "mirrors": [
-            "https://caddyserver.com/api/download?os=windows&arch=amd64"
+            "https://caddyserver.com/api/download?os=windows&arch=arm64"
         ],
         "alias": "caddy"
     }

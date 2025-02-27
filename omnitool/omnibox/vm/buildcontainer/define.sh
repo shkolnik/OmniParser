@@ -27,10 +27,10 @@ parseVersion() {
 
   case "${VERSION,,}" in
     "11" | "11p" | "win11" | "pro11" | "win11p" | "windows11" | "windows 11" )
-      VERSION="win11x64"
+      VERSION="aarch64"
       ;;
-    "11e" | "win11e" | "windows11e" | "windows 11e" | "win11x64-enterprise-eval" )
-      VERSION="win11x64-enterprise-eval"
+    "11e" | "win11e" | "windows11e" | "windows 11e" | "aarch64-enterprise-eval" )
+      VERSION="aarch64-enterprise-eval"
       ;;
   esac
 
