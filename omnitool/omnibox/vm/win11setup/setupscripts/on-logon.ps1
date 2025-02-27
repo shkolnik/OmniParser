@@ -1,4 +1,4 @@
-$scriptFolder = "\\host.lan\Data"
+$scriptFolder = "Z:\omnitool\omnibox\vm\win11setup\setupscripts"
 $pythonScriptFile = "$scriptFolder\server\main.py"
 $pythonServerPort = 5000
 

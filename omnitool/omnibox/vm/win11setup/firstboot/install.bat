@@ -1,6 +1,6 @@
 @echo off
 
-SET ScriptFolder=\\host.lan\Data
+SET ScriptFolder=Z:\omnitool\omnibox\vm\win11setup\setupscripts
 SET LogFile=%ScriptFolder%\firstboot_log.txt
 
 echo Running PowerShell script... > %LogFile%

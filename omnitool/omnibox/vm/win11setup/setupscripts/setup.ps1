@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Continue" # until downloading from mirrors is more stable
 
 # Section - General Setup
-$scriptFolder = "\\host.lan\Data"
+$scriptFolder = "Z:\omnitool\omnibox\vm\win11setup\setupscripts"
 $toolsFolder = "C:\Users\$env:USERNAME\Tools"
 
 # Load the shared setup-tools module
