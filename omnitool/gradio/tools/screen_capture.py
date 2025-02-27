@@ -14,7 +14,7 @@ def get_screenshot(resize: bool = False, target_width: int = 1920, target_height
     path = output_dir / f"screenshot_{uuid4().hex}.png"
     
     try:
-        response = requests.get('http://localhost:5000/screenshot')
+        response = requests.get('http://192.168.64.5:5000/screenshot')
         if response.status_code != 200:
             raise ToolError(f"Failed to capture screenshot: HTTP {response.status_code}")
         

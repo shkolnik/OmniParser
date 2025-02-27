@@ -237,7 +237,7 @@ class ComputerTool(BaseAnthropicTool):
         try:
             print(f"sending to vm: {command_list}")
             response = requests.post(
-                f"http://localhost:5000/execute", 
+                f"http://192.168.64.5:5000/execute", 
                 headers={'Content-Type': 'application/json'},
                 json={"command": command_list},
                 timeout=90
@@ -311,7 +311,7 @@ class ComputerTool(BaseAnthropicTool):
         """Return width and height of the screen"""
         try:
             response = requests.post(
-                f"http://localhost:5000/execute",
+                f"http://192.168.64.5:5000/execute",
                 headers={'Content-Type': 'application/json'},
                 json={"command": ["python", "-c", "import pyautogui; print(pyautogui.size())"]},
                 timeout=90
