@@ -1,18 +1,19 @@
 import requests
 import base64
 from pathlib import Path
-from tools.screen_capture import get_screenshot
+from tools.vm_client import VMClient
 from agent.llm_utils.utils import encode_image
 
 OUTPUT_DIR = "./tmp/outputs"
 
 class OmniParserClient:
-    def __init__(self, 
+    def __init__(self,
                  url: str) -> None:
         self.url = url
+        self.vm_client = VMClient()
 
     def __call__(self,):
-        screenshot, screenshot_path = get_screenshot()
+        screenshot, screenshot_path = self.vm_client.screenshot()
         screenshot_path = str(screenshot_path)
         image_base64 = encode_image(screenshot_path)
         response = requests.post(self.url, json={"base64_image": image_base64})
@@ -24,14 +25,14 @@ class OmniParserClient:
         som_screenshot_path = f"{OUTPUT_DIR}/screenshot_som_{screenshot_path_uuid}.png"
         with open(som_screenshot_path, "wb") as f:
             f.write(som_image_data)
-        
+
         response_json['width'] = screenshot.size[0]
         response_json['height'] = screenshot.size[1]
         response_json['original_screenshot_base64'] = image_base64
         response_json['screenshot_uuid'] = screenshot_path_uuid
         response_json = self.reformat_messages(response_json)
         return response_json
-    
+
     def reformat_messages(self, response_json: dict):
         screen_info = ""
         for idx, element in enumerate(response_json["parsed_content_list"]):

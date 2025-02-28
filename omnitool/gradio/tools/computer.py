@@ -3,8 +3,6 @@ import time
 from enum import StrEnum
 from typing import Literal, TypedDict
 
-from PIL import Image
-
 from anthropic.types.beta import BetaToolComputerUse20241022Param
 
 from .vm_client import VMClient
@@ -235,7 +233,7 @@ class ComputerTool(BaseAnthropicTool):
         if not hasattr(self, 'target_dimension'):
             raise 'Expected target_dimensions to be set'
         width, height = self.target_dimension["width"], self.target_dimension["height"]
-        screenshot, path = await client.screenshot(width, height)
+        _screenshot, path = await client.scaled_screenshot(width, height)
         return ToolResult(base64_image=base64.b64encode(path.read_bytes()).decode())
 
     def set_target_dimensions(self):
