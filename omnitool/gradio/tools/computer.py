@@ -77,31 +77,24 @@ class ComputerTool(BaseAnthropicTool):
     height: int
     display_num: int | None
 
-    _screenshot_delay = 2.0
-    _scaling_enabled = True
-
     @property
     def options(self) -> ComputerToolOptions:
-        width, height = self.scale_coordinates(
-            ScalingSource.COMPUTER, self.width, self.height
-        )
         return {
-            "display_width_px": width,
-            "display_height_px": height,
+            "display_width_px": self.width,
+            "display_height_px": self.height,
             "display_number": self.display_num,
         }
 
     def to_params(self) -> BetaToolComputerUse20241022Param:
         return {"name": self.name, "type": self.api_type, **self.options}
 
-    def __init__(self, is_scaling: bool = False):
+    def __init__(self):
         super().__init__()
 
         # Get screen width and height using Windows command
         self.display_num = None
         self.offset_x = 0
         self.offset_y = 0
-        self.is_scaling = is_scaling
         self.width, self.height = client.current_screen_size()
         print(f"screen size: {self.width}, {self.height}")
 
@@ -119,7 +112,7 @@ class ComputerTool(BaseAnthropicTool):
         coordinate: tuple[int, int] | None = None,
         **kwargs,
     ):
-        print(f"action: {action}, text: {text}, coordinate: {coordinate}, is_scaling: {self.is_scaling}")
+        print(f"action: {action}, text: {text}, coordinate: {coordinate}")
         if action in ("mouse_move", "left_click_drag"):
             if coordinate is None:
                 raise ToolError(f"coordinate is required for {action}")
@@ -131,19 +124,7 @@ class ComputerTool(BaseAnthropicTool):
             if not all(isinstance(i, int) for i in coordinate):
                 raise ToolError(f"{coordinate} must be a tuple of non-negative ints")
 
-            if self.is_scaling:
-                x, y = self.scale_coordinates(
-                    ScalingSource.API, coordinate[0], coordinate[1]
-                )
-            else:
-                x, y = coordinate
-
-            # print(f"scaled_coordinates: {x}, {y}")
-            # print(f"offset: {self.offset_x}, {self.offset_y}")
-
-            # x += self.offset_x # TODO - check if this is needed
-            # y += self.offset_y
-
+            x, y = coordinate
             print(f"mouse move to {x}, {y}")
 
             if action == "mouse_move":
@@ -201,7 +182,6 @@ class ComputerTool(BaseAnthropicTool):
                 return await self.screenshot()
             elif action == "cursor_position":
                 x, y = client.current_mouse_coordinates()
-                x, y = self.scale_coordinates(ScalingSource.COMPUTER, x, y)
                 return ToolResult(output=f"X={x},Y={y}")
             else:
                 if action == "left_click":
@@ -230,46 +210,5 @@ class ComputerTool(BaseAnthropicTool):
 
 
     async def screenshot(self):
-        if not hasattr(self, 'target_dimension'):
-            raise 'Expected target_dimensions to be set'
-        width, height = self.target_dimension["width"], self.target_dimension["height"]
-        _screenshot, path = await client.scaled_screenshot(width, height)
+        _screenshot, path = client.screenshot() #scaled_screenshot(width, height)
         return ToolResult(base64_image=base64.b64encode(path.read_bytes()).decode())
-
-    def set_target_dimensions(self):
-        ratio = self.width / self.height
-        target_dimension = None
-
-        for target_name, dimension in MAX_SCALING_TARGETS.items():
-            # allow some error in the aspect ratio - not ratios are exactly 16:9
-            if abs(dimension["width"] / dimension["height"] - ratio) < 0.02:
-                if dimension["width"] < self.width:
-                    target_dimension = dimension
-                    self.target_dimension = target_dimension
-                    # print(f"target_dimension: {target_dimension}")
-                break
-
-        if target_dimension is None:
-            # TODO: currently we force the target to be WXGA (16:10), when it cannot find a match
-            target_dimension = MAX_SCALING_TARGETS["WXGA"]
-            self.target_dimension = MAX_SCALING_TARGETS["WXGA"]
-
-
-    def scale_coordinates(self, source: ScalingSource, x: int, y: int):
-        """Scale coordinates to a target maximum resolution."""
-        if not self._scaling_enabled:
-            return x, y
-
-        self.set_target_dimensions()
-
-        # should be less than 1
-        x_scaling_factor = self.target_dimension["width"] / self.width
-        y_scaling_factor = self.target_dimension["height"] / self.height
-        if source == ScalingSource.API:
-            if x > self.width or y > self.height:
-                raise ToolError(f"Coordinates {x}, {y} are out of bounds")
-            # scale up
-            return round(x / x_scaling_factor), round(y / y_scaling_factor)
-        # scale down
-        return round(x * x_scaling_factor), round(y * y_scaling_factor)
-
