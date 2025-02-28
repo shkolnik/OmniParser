@@ -1,21 +1,17 @@
 import base64
 import time
 from enum import StrEnum
-from typing import Literal, NoReturn, Tuple, TypedDict
+from typing import Literal, TypedDict
 
 from PIL import Image
 
 from anthropic.types.beta import BetaToolComputerUse20241022Param
 
+from .vm_client import VMClient
+
 from .base import BaseAnthropicTool, ToolError, ToolResult
-from .screen_capture import get_screenshot
-import requests
-import re
 
 OUTPUT_DIR = "./tmp/outputs"
-
-TYPING_DELAY_MS = 12
-TYPING_GROUP_SIZE = 50
 
 Action = Literal[
     "key",
@@ -59,59 +55,6 @@ class ComputerToolOptions(TypedDict):
 # def chunks(s: str, chunk_size: int) -> list[str]:
 #     return [s[i : i + chunk_size] for i in range(0, len(s), chunk_size)]
 
-def send_to_vm(action: str):
-        """
-        Executes a python command on the server. Only return tuple of x,y when action is "pyautogui.position()"
-        """
-        prefix = "import pyautogui; pyautogui.FAILSAFE = False;"
-        command_list = ["python", "-c", f"{prefix} {action}"]
-        parse = action == "pyautogui.position()"
-        if parse:
-            command_list[-1] = f"{prefix} print({action})"
-
-        try:
-            print(f"sending to vm: {command_list}")
-            response = requests.post(
-                f"http://192.168.64.5:5000/execute",
-                headers={'Content-Type': 'application/json'},
-                json={"command": command_list},
-                timeout=90
-            )
-            time.sleep(0.7) # avoid async error as actions take time to complete
-            print(f"action executed")
-            if response.status_code != 200:
-                raise ToolError(f"Failed to execute command. Status code: {response.status_code}")
-            if parse:
-                output = response.json()['output'].strip()
-                match = re.search(r'Point\(x=(\d+),\s*y=(\d+)\)', output)
-                if not match:
-                    raise ToolError(f"Could not parse coordinates from output: {output}")
-                x, y = map(int, match.groups())
-                return x, y
-        except requests.exceptions.RequestException as e:
-            raise ToolError(f"An error occurred while trying to execute the command: {str(e)}")
-
-def get_screen_size():
-    """Return width and height of the screen"""
-    try:
-        response = requests.post(
-            f"http://192.168.64.5:5000/execute",
-            headers={'Content-Type': 'application/json'},
-            json={"command": ["python", "-c", "import pyautogui; print(pyautogui.size())"]},
-            timeout=90
-        )
-        if response.status_code != 200:
-            raise ToolError(f"Failed to get screen size. Status code: {response.status_code}")
-
-        output = response.json()['output'].strip()
-        match = re.search(r'Size\(width=(\d+),\s*height=(\d+)\)', output)
-        if not match:
-            raise ToolError(f"Could not parse screen size from output: {output}")
-        width, height = map(int, match.groups())
-        return width, height
-    except requests.exceptions.RequestException as e:
-        raise ToolError(f"An error occurred while trying to get screen size: {str(e)}")
-
 # def padding_image(screenshot):
 #     """Pad the screenshot to 16:10 aspect ratio, when the aspect ratio is not 16:10."""
 #     _, height = screenshot.size
@@ -121,52 +64,6 @@ def get_screen_size():
 #     # padding to top left
 #     padding_image.paste(screenshot, (0, 0))
 #     return padding_image
-
-class VMClient:
-    def current_mouse_coordinates(_self) -> Tuple[int, int]:
-        return send_to_vm("pyautogui.position()")
-
-    def mouse_move(_self, x: int, y: int) -> NoReturn:
-        send_to_vm(f"pyautogui.moveTo({x}, {y})")
-
-    def mouse_drag(_self, x: int, y: int) -> NoReturn:
-        send_to_vm(f"pyautogui.dragTo({x}, {y}, duration=0.5)")
-
-    def mouse_left_click(_self, ) -> NoReturn:
-        send_to_vm("pyautogui.click()")
-
-    def mouse_double_click(_self, ) -> NoReturn:
-        send_to_vm("pyautogui.doubleClick()")
-
-    def mouse_right_click(_self, ) -> NoReturn:
-        send_to_vm("pyautogui.rightClick()")
-
-    def mouse_middle_click(_self, ) -> NoReturn:
-        send_to_vm("pyautogui.middleClick()")
-
-    def mouse_left_press(_self, ) -> NoReturn:
-        send_to_vm("pyautogui.mouseDown()")
-        time.sleep(1)
-        send_to_vm("pyautogui.mouseUp()")
-
-    def scroll_up(_self, ) -> NoReturn:
-        send_to_vm("pyautogui.scroll(100)")
-
-    def scroll_down(_self, ) -> NoReturn:
-        send_to_vm("pyautogui.scroll(-100)")
-
-    def key_down(_self, key: str) -> NoReturn:
-        send_to_vm(f"pyautogui.keyDown('{key}')")
-
-    def key_up(_self, key: str) -> NoReturn:
-        send_to_vm(f"pyautogui.keyUp('{key}')")
-
-    def key_press(self, key: str) -> NoReturn:
-        self.key_down(key)
-        self.key_up(key)
-
-    def type(_self, text: str) -> NoReturn:
-        send_to_vm(f"pyautogui.typewrite('{text}', interval={TYPING_DELAY_MS / 1000})")
 
 client = VMClient()
 
@@ -207,7 +104,7 @@ class ComputerTool(BaseAnthropicTool):
         self.offset_x = 0
         self.offset_y = 0
         self.is_scaling = is_scaling
-        self.width, self.height = get_screen_size()
+        self.width, self.height = client.current_screen_size()
         print(f"screen size: {self.width}, {self.height}")
 
         self.key_conversion = {"Page_Down": "pagedown",
@@ -337,11 +234,8 @@ class ComputerTool(BaseAnthropicTool):
     async def screenshot(self):
         if not hasattr(self, 'target_dimension'):
             raise 'Expected target_dimensions to be set'
-            # screenshot = self.padding_image(screenshot)
-            # self.target_dimension = MAX_SCALING_TARGETS["WXGA"]
         width, height = self.target_dimension["width"], self.target_dimension["height"]
-        screenshot, path = get_screenshot(resize=True, target_width=width, target_height=height)
-        time.sleep(0.7) # avoid async error as actions take time to complete
+        screenshot, path = await client.screenshot(width, height)
         return ToolResult(base64_image=base64.b64encode(path.read_bytes()).decode())
 
     def set_target_dimensions(self):
