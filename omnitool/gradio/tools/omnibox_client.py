@@ -91,7 +91,7 @@ def get_screen_size(base_url: str):
         raise ToolError(f"An error occurred while trying to get screen size: {str(e)}")
 
 
-class VMClient:
+class OmniboxClient:
     base_url: str
 
     def __init__(self, base_url: str):

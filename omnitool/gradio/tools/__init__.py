@@ -1,11 +1,11 @@
 from .base import ToolResult
 from .collection import ToolCollection
 from .computer import ComputerTool
-from .vm_client import VMClient
+from .omnibox_client import OmniboxClient
 
 __ALL__ = [
     ComputerTool,
     ToolCollection,
     ToolResult,
-    VMClient,
+    OmniboxClient,
 ]

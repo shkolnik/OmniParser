@@ -5,7 +5,7 @@ from typing import Literal, TypedDict
 
 from anthropic.types.beta import BetaToolComputerUse20241022Param
 
-from .vm_client import VMClient
+from .omnibox_client import OmniboxClient
 
 from .base import BaseAnthropicTool, ToolError, ToolResult
 
@@ -63,7 +63,7 @@ class ComputerToolOptions(TypedDict):
 #     padding_image.paste(screenshot, (0, 0))
 #     return padding_image
 
-client = VMClient(f"http://192.168.64.5:5000")
+client = OmniboxClient(f"http://192.168.64.5:5000")
 
 class ComputerTool(BaseAnthropicTool):
     """
