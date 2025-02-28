@@ -63,7 +63,7 @@ class ComputerToolOptions(TypedDict):
 #     padding_image.paste(screenshot, (0, 0))
 #     return padding_image
 
-client = VMClient()
+client = VMClient(f"http://192.168.64.5:5000")
 
 class ComputerTool(BaseAnthropicTool):
     """

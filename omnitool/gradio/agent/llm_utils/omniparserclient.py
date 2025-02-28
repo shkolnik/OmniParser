@@ -10,7 +10,7 @@ class OmniParserClient:
     def __init__(self,
                  url: str) -> None:
         self.url = url
-        self.vm_client = VMClient()
+        self.vm_client = VMClient(f"http://192.168.64.5:5000")
 
     def __call__(self,):
         screenshot, screenshot_path = self.vm_client.screenshot()

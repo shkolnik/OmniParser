@@ -92,58 +92,61 @@ def get_screen_size(base_url: str):
 
 
 class VMClient:
-    vm_url: str = f"http://192.168.64.5:5000"
+    base_url: str
+
+    def __init__(self, base_url: str):
+        self.base_url = base_url
 
     def screenshot(self):
-        return get_screenshot(self.vm_url)
+        return get_screenshot(self.base_url)
 
     async def scaled_screenshot(self, target_width, target_height):
-        return get_screenshot(self.vm_url, resize=True, target_width=target_width, target_height=target_height)
+        return get_screenshot(self.base_url, resize=True, target_width=target_width, target_height=target_height)
 
     def current_screen_size(self) -> Tuple[int, int]:
-        return get_screen_size(self.vm_url)
+        return get_screen_size(self.base_url)
 
     def current_mouse_coordinates(self) -> Tuple[int, int]:
-        return send_to_vm(self.vm_url, "pyautogui.position()")
+        return send_to_vm(self.base_url, "pyautogui.position()")
 
     def mouse_move(self, x: int, y: int) -> NoReturn:
-        send_to_vm(self.vm_url, f"pyautogui.moveTo({x}, {y})")
+        send_to_vm(self.base_url, f"pyautogui.moveTo({x}, {y})")
 
     def mouse_drag(self, x: int, y: int) -> NoReturn:
-        send_to_vm(self.vm_url, f"pyautogui.dragTo({x}, {y}, duration=0.5)")
+        send_to_vm(self.base_url, f"pyautogui.dragTo({x}, {y}, duration=0.5)")
 
     def mouse_left_click(self, ) -> NoReturn:
-        send_to_vm(self.vm_url, "pyautogui.click()")
+        send_to_vm(self.base_url, "pyautogui.click()")
 
     def mouse_double_click(self, ) -> NoReturn:
-        send_to_vm(self.vm_url, "pyautogui.doubleClick()")
+        send_to_vm(self.base_url, "pyautogui.doubleClick()")
 
     def mouse_right_click(self, ) -> NoReturn:
-        send_to_vm(self.vm_url, "pyautogui.rightClick()")
+        send_to_vm(self.base_url, "pyautogui.rightClick()")
 
     def mouse_middle_click(self, ) -> NoReturn:
-        send_to_vm(self.vm_url, "pyautogui.middleClick()")
+        send_to_vm(self.base_url, "pyautogui.middleClick()")
 
     def mouse_left_press(self, ) -> NoReturn:
-        send_to_vm(self.vm_url, "pyautogui.mouseDown()")
+        send_to_vm(self.base_url, "pyautogui.mouseDown()")
         time.sleep(1)
-        send_to_vm(self.vm_url, "pyautogui.mouseUp()")
+        send_to_vm(self.base_url, "pyautogui.mouseUp()")
 
     def scroll_up(self, ) -> NoReturn:
-        send_to_vm(self.vm_url, "pyautogui.scroll(100)")
+        send_to_vm(self.base_url, "pyautogui.scroll(100)")
 
     def scroll_down(self, ) -> NoReturn:
-        send_to_vm(self.vm_url, "pyautogui.scroll(-100)")
+        send_to_vm(self.base_url, "pyautogui.scroll(-100)")
 
     def key_down(self, key: str) -> NoReturn:
-        send_to_vm(self.vm_url, f"pyautogui.keyDown('{key}')")
+        send_to_vm(self.base_url, f"pyautogui.keyDown('{key}')")
 
     def key_up(self, key: str) -> NoReturn:
-        send_to_vm(self.vm_url, f"pyautogui.keyUp('{key}')")
+        send_to_vm(self.base_url, f"pyautogui.keyUp('{key}')")
 
     def key_press(self, key: str) -> NoReturn:
         self.key_down(key)
         self.key_up(key)
 
     def type(self, text: str) -> NoReturn:
-        send_to_vm(self.vm_url, f"pyautogui.typewrite('{text}', interval={TYPING_DELAY_MS / 1000})")
+        send_to_vm(self.base_url, f"pyautogui.typewrite('{text}', interval={TYPING_DELAY_MS / 1000})")
