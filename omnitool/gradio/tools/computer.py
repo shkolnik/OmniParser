@@ -1,7 +1,7 @@
 import base64
 import time
 from enum import StrEnum
-from typing import Literal, TypedDict
+from typing import Literal, NoReturn, Tuple, TypedDict
 
 from PIL import Image
 
@@ -72,7 +72,7 @@ def send_to_vm(action: str):
         try:
             print(f"sending to vm: {command_list}")
             response = requests.post(
-                f"http://192.168.64.5:5000/execute", 
+                f"http://192.168.64.5:5000/execute",
                 headers={'Content-Type': 'application/json'},
                 json={"command": command_list},
                 timeout=90
@@ -102,7 +102,7 @@ def get_screen_size():
         )
         if response.status_code != 200:
             raise ToolError(f"Failed to get screen size. Status code: {response.status_code}")
-        
+
         output = response.json()['output'].strip()
         match = re.search(r'Size\(width=(\d+),\s*height=(\d+)\)', output)
         if not match:
@@ -121,6 +121,54 @@ def get_screen_size():
 #     # padding to top left
 #     padding_image.paste(screenshot, (0, 0))
 #     return padding_image
+
+class VMClient:
+    def current_mouse_coordinates(_self) -> Tuple[int, int]:
+        return send_to_vm("pyautogui.position()")
+
+    def mouse_move(_self, x: int, y: int) -> NoReturn:
+        send_to_vm(f"pyautogui.moveTo({x}, {y})")
+
+    def mouse_drag(_self, x: int, y: int) -> NoReturn:
+        send_to_vm(f"pyautogui.dragTo({x}, {y}, duration=0.5)")
+
+    def mouse_left_click(_self, ) -> NoReturn:
+        send_to_vm("pyautogui.click()")
+
+    def mouse_double_click(_self, ) -> NoReturn:
+        send_to_vm("pyautogui.doubleClick()")
+
+    def mouse_right_click(_self, ) -> NoReturn:
+        send_to_vm("pyautogui.rightClick()")
+
+    def mouse_middle_click(_self, ) -> NoReturn:
+        send_to_vm("pyautogui.middleClick()")
+
+    def mouse_left_press(_self, ) -> NoReturn:
+        send_to_vm("pyautogui.mouseDown()")
+        time.sleep(1)
+        send_to_vm("pyautogui.mouseUp()")
+
+    def scroll_up(_self, ) -> NoReturn:
+        send_to_vm("pyautogui.scroll(100)")
+
+    def scroll_down(_self, ) -> NoReturn:
+        send_to_vm("pyautogui.scroll(-100)")
+
+    def key_down(_self, key: str) -> NoReturn:
+        send_to_vm(f"pyautogui.keyDown('{key}')")
+
+    def key_up(_self, key: str) -> NoReturn:
+        send_to_vm(f"pyautogui.keyUp('{key}')")
+
+    def key_press(self, key: str) -> NoReturn:
+        self.key_down(key)
+        self.key_up(key)
+
+    def type(_self, text: str) -> NoReturn:
+        send_to_vm(f"pyautogui.typewrite('{text}', interval={TYPING_DELAY_MS / 1000})")
+
+client = VMClient()
 
 class ComputerTool(BaseAnthropicTool):
     """
@@ -187,7 +235,7 @@ class ComputerTool(BaseAnthropicTool):
             # if not all(isinstance(i, int) and i >= 0 for i in coordinate):
             if not all(isinstance(i, int) for i in coordinate):
                 raise ToolError(f"{coordinate} must be a tuple of non-negative ints")
-            
+
             if self.is_scaling:
                 x, y = self.scale_coordinates(
                     ScalingSource.API, coordinate[0], coordinate[1]
@@ -197,18 +245,18 @@ class ComputerTool(BaseAnthropicTool):
 
             # print(f"scaled_coordinates: {x}, {y}")
             # print(f"offset: {self.offset_x}, {self.offset_y}")
-            
+
             # x += self.offset_x # TODO - check if this is needed
             # y += self.offset_y
 
             print(f"mouse move to {x}, {y}")
-            
+
             if action == "mouse_move":
-                send_to_vm(f"pyautogui.moveTo({x}, {y})")
+                client.mouse_move(x, y)
                 return ToolResult(output=f"Moved mouse to ({x}, {y})")
             elif action == "left_click_drag":
-                current_x, current_y = send_to_vm("pyautogui.position()")
-                send_to_vm(f"pyautogui.dragTo({x}, {y}, duration=0.5)")
+                current_x, current_y = client.current_mouse_coordinates()
+                client.mouse_drag(x, y)
                 return ToolResult(output=f"Dragged mouse from ({current_x}, {current_y}) to ({x}, {y})")
 
         if action in ("key", "type"):
@@ -225,18 +273,18 @@ class ComputerTool(BaseAnthropicTool):
                 for key in keys:
                     key = self.key_conversion.get(key.strip(), key.strip())
                     key = key.lower()
-                    send_to_vm(f"pyautogui.keyDown('{key}')")  # Press down each key
+                    client.key_down(key)  # Press down each key
                 for key in reversed(keys):
                     key = self.key_conversion.get(key.strip(), key.strip())
                     key = key.lower()
-                    send_to_vm(f"pyautogui.keyUp('{key}')")    # Release each key in reverse order
+                    client.key_up(key)    # Release each key in reverse order
                 return ToolResult(output=f"Pressed keys: {text}")
-            
+
             elif action == "type":
                 # default click before type TODO: check if this is needed
-                send_to_vm("pyautogui.click()")
-                send_to_vm(f"pyautogui.typewrite('{text}', interval={TYPING_DELAY_MS / 1000})")
-                send_to_vm("pyautogui.press('enter')")
+                client.mouse_left_click()
+                client.type(text)
+                client.key_press('enter')
                 screenshot_base64 = (await self.screenshot()).base64_image
                 return ToolResult(output=text, base64_image=screenshot_base64)
 
@@ -257,28 +305,26 @@ class ComputerTool(BaseAnthropicTool):
             if action == "screenshot":
                 return await self.screenshot()
             elif action == "cursor_position":
-                x, y = send_to_vm("pyautogui.position()")
+                x, y = client.current_mouse_coordinates()
                 x, y = self.scale_coordinates(ScalingSource.COMPUTER, x, y)
                 return ToolResult(output=f"X={x},Y={y}")
             else:
                 if action == "left_click":
-                    send_to_vm("pyautogui.click()")
+                    client.mouse_left_click()
                 elif action == "right_click":
-                    send_to_vm("pyautogui.rightClick()")
+                    client.mouse_right_click()
                 elif action == "middle_click":
-                    send_to_vm("pyautogui.middleClick()")
+                    client.mouse_middle_click()
                 elif action == "double_click":
-                    send_to_vm("pyautogui.doubleClick()")
+                    client.mouse_double_click()
                 elif action == "left_press":
-                    send_to_vm("pyautogui.mouseDown()")
-                    time.sleep(1)
-                    send_to_vm("pyautogui.mouseUp()")
+                    client.mouse_left_press()
                 return ToolResult(output=f"Performed {action}")
         if action in ("scroll_up", "scroll_down"):
             if action == "scroll_up":
-                send_to_vm("pyautogui.scroll(100)")
+                client.scroll_up()
             elif action == "scroll_down":
-                send_to_vm("pyautogui.scroll(-100)")
+                client.scroll_down()
             return ToolResult(output=f"Performed {action}")
         if action == "hover":
             return ToolResult(output=f"Performed {action}")
@@ -287,7 +333,7 @@ class ComputerTool(BaseAnthropicTool):
             return ToolResult(output=f"Performed {action}")
         raise ToolError(f"Invalid action: {action}")
 
-    
+
     async def screenshot(self):
         if not hasattr(self, 'target_dimension'):
             raise 'Expected target_dimensions to be set'
@@ -323,7 +369,7 @@ class ComputerTool(BaseAnthropicTool):
             return x, y
 
         self.set_target_dimensions()
-        
+
         # should be less than 1
         x_scaling_factor = self.target_dimension["width"] / self.width
         y_scaling_factor = self.target_dimension["height"] / self.height
@@ -335,4 +381,3 @@ class ComputerTool(BaseAnthropicTool):
         # scale down
         return round(x * x_scaling_factor), round(y * y_scaling_factor)
 
-   
