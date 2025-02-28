@@ -30,10 +30,10 @@ def extract_data(input_string, data_type):
 class VLMAgent:
     def __init__(
         self,
-        model: str, 
-        provider: str, 
+        model: str,
+        provider: str,
         api_key: str,
-        output_callback: Callable, 
+        output_callback: Callable,
         api_response_callback: Callable,
         max_tokens: int = 4096,
         only_n_most_recent_images: int | None = None,
@@ -51,7 +51,7 @@ class VLMAgent:
             self.model = "o3-mini"
         else:
             raise ValueError(f"Model {model} not supported")
-        
+
 
         self.provider = provider
         self.api_key = api_key
@@ -66,7 +66,7 @@ class VLMAgent:
         self.step_count = 0
 
         self.system = ''
-           
+
     def __call__(self, messages: list, parsed_screen: list[str, list, dict]):
         self.step_count += 1
         image_base64 = parsed_screen['original_screenshot_base64']
@@ -139,10 +139,10 @@ class VLMAgent:
         self.output_callback(f"LLM: {latency_vlm:.2f}s, OmniParser: {latency_omniparser:.2f}s", sender="bot")
 
         print(f"{vlm_response}")
-        
+
         if self.print_usage:
             print(f"Total token so far: {self.total_token_usage}. Total cost so far: $USD{self.total_cost:.5f}")
-        
+
         vlm_response_json = extract_data(vlm_response, "json")
         vlm_response_json = json.loads(vlm_response_json)
 
@@ -155,7 +155,7 @@ class VLMAgent:
                 img_to_show = Image.open(BytesIO(img_to_show_data))
 
                 draw = ImageDraw.Draw(img_to_show)
-                x, y = vlm_response_json["box_centroid_coordinate"] 
+                x, y = vlm_response_json["box_centroid_coordinate"]
                 radius = 10
                 draw.ellipse((x - radius, y - radius, x + radius, y + radius), fill='red')
                 draw.ellipse((x - radius*3, y - radius*3, x + radius*3, y + radius*3), fill=None, outline='red', width=2)
@@ -225,7 +225,7 @@ Your available "Next Action" only include:
 - double_click: move mouse to box id and double clicks.
 - hover: move mouse to box id.
 - scroll_up: scrolls the screen up to view previous content.
-- scroll_down: scrolls the screen down, when the desired button is not visible, or you need to see more content. 
+- scroll_down: scrolls the screen down, when the desired button is not visible, or you need to see more content.
 - wait: waits for 1 second for the device to load or respond.
 
 Based on the visual information from the screenshot image and the detected bounding boxes, please determine the next action, the Box ID you should operate on (if action is one of 'type', 'hover', 'scroll_up', 'scroll_down', 'wait', there should be no Box ID field), and the value (if the action is 'type') in order to complete the task.
@@ -234,7 +234,7 @@ Output format:
 ```json
 {{
     "Reasoning": str, # describe what is in the current screen, taking into account the history, then describe your step-by-step thoughts on how to achieve the task, choose one action from available actions at a time.
-    "Next Action": "action_type, action description" | "None" # one action at a time, describe it in short and precisely. 
+    "Next Action": "action_type, action description" | "None" # one action at a time, describe it in short and precisely.
     "Box ID": n,
     "value": "xxx" # only provide value field if the action is type, else don't include value key
 }}
@@ -242,7 +242,7 @@ Output format:
 
 One Example:
 ```json
-{{  
+{{
     "Reasoning": "The current screen shows google result of amazon, in previous action I have searched amazon on google. Then I need to click on the first search results to go to amazon.com.",
     "Next Action": "left_click",
     "Box ID": m
@@ -289,7 +289,7 @@ IMPORTANT NOTES:
 6. The tasks involve buying multiple products or navigating through multiple pages. You should break it into subgoals and complete each subgoal one by one in the order of the instructions.
 7. avoid choosing the same action/elements multiple times in a row, if it happens, reflect to yourself, what may have gone wrong, and predict a different action.
 8. If you are prompted with login information page or captcha page, or you think it need user's permission to do the next action, you should say "Next Action": "None" in the json field.
-""" 
+"""
 
         return main_section
 
@@ -298,7 +298,7 @@ def _remove_som_images(messages):
         msg_content = msg["content"]
         if isinstance(msg_content, list):
             msg["content"] = [
-                cnt for cnt in msg_content 
+                cnt for cnt in msg_content
                 if not (isinstance(cnt, str) and 'som' in cnt and is_image_path(cnt))
             ]
 
@@ -327,7 +327,7 @@ def _maybe_filter_to_n_most_recent_images(
                         total_images += 1
 
     images_to_remove = total_images - images_to_keep
-    
+
     for msg in messages:
         msg_content = msg["content"]
         if isinstance(msg_content, list):
