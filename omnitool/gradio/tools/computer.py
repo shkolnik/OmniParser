@@ -50,19 +50,6 @@ class ComputerToolOptions(TypedDict):
     display_number: int | None
 
 
-# def chunks(s: str, chunk_size: int) -> list[str]:
-#     return [s[i : i + chunk_size] for i in range(0, len(s), chunk_size)]
-
-# def padding_image(screenshot):
-#     """Pad the screenshot to 16:10 aspect ratio, when the aspect ratio is not 16:10."""
-#     _, height = screenshot.size
-#     new_width = height * 16 // 10
-
-#     padding_image = Image.new("RGB", (new_width, height), (255, 255, 255))
-#     # padding to top left
-#     padding_image.paste(screenshot, (0, 0))
-#     return padding_image
-
 client = OmniboxClient(f"http://192.168.64.5:5000")
 
 class ComputerTool(BaseAnthropicTool):
@@ -93,8 +80,6 @@ class ComputerTool(BaseAnthropicTool):
 
         # Get screen width and height using Windows command
         self.display_num = None
-        self.offset_x = 0
-        self.offset_y = 0
         self.width, self.height = client.current_screen_size()
         print(f"screen size: {self.width}, {self.height}")
 
@@ -161,8 +146,8 @@ class ComputerTool(BaseAnthropicTool):
                 client.mouse_left_click()
                 client.type(text)
                 client.key_press('enter')
-                screenshot_base64 = (await self.screenshot()).base64_image
-                return ToolResult(output=text, base64_image=screenshot_base64)
+                _screenshot, path = client.screenshot()
+                return ToolResult(output=text, base64_image=base64.b64encode(path.read_bytes()).decode())
 
         if action in (
             "left_click",
@@ -179,7 +164,8 @@ class ComputerTool(BaseAnthropicTool):
                 raise ToolError(f"coordinate is not accepted for {action}")
 
             if action == "screenshot":
-                return await self.screenshot()
+                _screenshot, path = client.screenshot()
+                return ToolResult(base64_image=base64.b64encode(path.read_bytes()).decode())
             elif action == "cursor_position":
                 x, y = client.current_mouse_coordinates()
                 return ToolResult(output=f"X={x},Y={y}")
@@ -208,7 +194,3 @@ class ComputerTool(BaseAnthropicTool):
             return ToolResult(output=f"Performed {action}")
         raise ToolError(f"Invalid action: {action}")
 
-
-    async def screenshot(self):
-        _screenshot, path = client.screenshot() #scaled_screenshot(width, height)
-        return ToolResult(base64_image=base64.b64encode(path.read_bytes()).decode())

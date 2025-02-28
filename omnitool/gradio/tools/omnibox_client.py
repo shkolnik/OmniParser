@@ -69,27 +69,6 @@ def get_screenshot(base_url: str, resize: bool = False, target_width: int = 1920
     except Exception as e:
         raise ToolError(f"Failed to capture screenshot: {str(e)}")
 
-def get_screen_size(base_url: str):
-    """Return width and height of the screen"""
-    try:
-        response = requests.post(
-            base_url + '/execute',
-            headers={'Content-Type': 'application/json'},
-            json={"command": ["python", "-c", "import pyautogui; print(pyautogui.size())"]},
-            timeout=90
-        )
-        if response.status_code != 200:
-            raise ToolError(f"Failed to get screen size. Status code: {response.status_code}")
-
-        output = response.json()['output'].strip()
-        match = re.search(r'Size\(width=(\d+),\s*height=(\d+)\)', output)
-        if not match:
-            raise ToolError(f"Could not parse screen size from output: {output}")
-        width, height = map(int, match.groups())
-        return width, height
-    except requests.exceptions.RequestException as e:
-        raise ToolError(f"An error occurred while trying to get screen size: {str(e)}")
-
 
 class OmniboxClient:
     base_url: str
@@ -104,7 +83,9 @@ class OmniboxClient:
         return get_screenshot(self.base_url, resize=True, target_width=target_width, target_height=target_height)
 
     def current_screen_size(self) -> Tuple[int, int]:
-        return get_screen_size(self.base_url)
+        """Return width and height of the screen"""
+        screenshot, _path = self.screenshot()
+        return screenshot.size
 
     def current_mouse_coordinates(self) -> Tuple[int, int]:
         return send_to_vm(self.base_url, "pyautogui.position()")
