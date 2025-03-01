@@ -49,9 +49,6 @@ class ComputerToolOptions(TypedDict):
     display_width_px: int
     display_number: int | None
 
-
-client = OmniboxClient(f"http://192.168.64.5:5000")
-
 class ComputerTool(BaseAnthropicTool):
     """
     A tool that allows the agent to interact with the screen, keyboard, and mouse of the current computer.
@@ -63,6 +60,7 @@ class ComputerTool(BaseAnthropicTool):
     width: int
     height: int
     display_num: int | None
+    computer_client: OmniboxClient
 
     @property
     def options(self) -> ComputerToolOptions:
@@ -75,12 +73,13 @@ class ComputerTool(BaseAnthropicTool):
     def to_params(self) -> BetaToolComputerUse20241022Param:
         return {"name": self.name, "type": self.api_type, **self.options}
 
-    def __init__(self):
+    def __init__(self, computer_client: OmniboxClient):
         super().__init__()
+        self.computer_client = computer_client
 
         # Get screen width and height using Windows command
         self.display_num = None
-        self.width, self.height = client.current_screen_size()
+        self.width, self.height = self.computer_client.current_screen_size()
         print(f"screen size: {self.width}, {self.height}")
 
         self.key_conversion = {"Page_Down": "pagedown",
@@ -113,11 +112,11 @@ class ComputerTool(BaseAnthropicTool):
             print(f"mouse move to {x}, {y}")
 
             if action == "mouse_move":
-                client.mouse_move(x, y)
+                self.computer_client.mouse_move(x, y)
                 return ToolResult(output=f"Moved mouse to ({x}, {y})")
             elif action == "left_click_drag":
-                current_x, current_y = client.current_mouse_coordinates()
-                client.mouse_drag(x, y)
+                current_x, current_y = self.computer_client.current_mouse_coordinates()
+                self.computer_client.mouse_drag(x, y)
                 return ToolResult(output=f"Dragged mouse from ({current_x}, {current_y}) to ({x}, {y})")
 
         if action in ("key", "type"):
@@ -134,19 +133,19 @@ class ComputerTool(BaseAnthropicTool):
                 for key in keys:
                     key = self.key_conversion.get(key.strip(), key.strip())
                     key = key.lower()
-                    client.key_down(key)  # Press down each key
+                    self.computer_client.key_down(key)  # Press down each key
                 for key in reversed(keys):
                     key = self.key_conversion.get(key.strip(), key.strip())
                     key = key.lower()
-                    client.key_up(key)    # Release each key in reverse order
+                    self.computer_client.key_up(key)    # Release each key in reverse order
                 return ToolResult(output=f"Pressed keys: {text}")
 
             elif action == "type":
                 # default click before type TODO: check if this is needed
-                client.mouse_left_click()
-                client.type(text)
-                client.key_press('enter')
-                _screenshot, path = client.screenshot()
+                self.computer_client.mouse_left_click()
+                self.computer_client.type(text)
+                self.computer_client.key_press('enter')
+                _screenshot, path = self.computer_client.screenshot()
                 return ToolResult(output=text, base64_image=base64.b64encode(path.read_bytes()).decode())
 
         if action in (
@@ -164,28 +163,28 @@ class ComputerTool(BaseAnthropicTool):
                 raise ToolError(f"coordinate is not accepted for {action}")
 
             if action == "screenshot":
-                _screenshot, path = client.screenshot()
+                _screenshot, path = self.computer_client.screenshot()
                 return ToolResult(base64_image=base64.b64encode(path.read_bytes()).decode())
             elif action == "cursor_position":
-                x, y = client.current_mouse_coordinates()
+                x, y = self.computer_client.current_mouse_coordinates()
                 return ToolResult(output=f"X={x},Y={y}")
             else:
                 if action == "left_click":
-                    client.mouse_left_click()
+                    self.computer_client.mouse_left_click()
                 elif action == "right_click":
-                    client.mouse_right_click()
+                    self.computer_client.mouse_right_click()
                 elif action == "middle_click":
-                    client.mouse_middle_click()
+                    self.computer_client.mouse_middle_click()
                 elif action == "double_click":
-                    client.mouse_double_click()
+                    self.computer_client.mouse_double_click()
                 elif action == "left_press":
-                    client.mouse_left_press()
+                    self.computer_client.mouse_left_press()
                 return ToolResult(output=f"Performed {action}")
         if action in ("scroll_up", "scroll_down"):
             if action == "scroll_up":
-                client.scroll_up()
+                self.computer_client.scroll_up()
             elif action == "scroll_down":
-                client.scroll_down()
+                self.computer_client.scroll_down()
             return ToolResult(output=f"Performed {action}")
         if action == "hover":
             return ToolResult(output=f"Performed {action}")

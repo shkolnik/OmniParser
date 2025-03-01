@@ -13,7 +13,7 @@ from anthropic.types.beta import (
     BetaMessage,
     BetaMessageParam
 )
-from tools import ToolResult
+from tools import ToolResult, OmniboxClient
 
 from agent.llm_utils.omniparserclient import OmniParserClient
 from agent.anthropic_agent import AnthropicActor
@@ -53,13 +53,15 @@ def sampling_loop_sync(
     Synchronous agentic sampling loop for the assistant/tool interaction of computer use.
     """
     print('in sampling_loop_sync, model:', model)
-    omniparser_client = OmniParserClient(url=f"http://{omniparser_url}/parse/")
+    omnibox_client = OmniboxClient(f"http://192.168.64.5:5000")
+    omniparser_client = OmniParserClient(url=f"http://{omniparser_url}/parse/", computer_client=omnibox_client)
     if model == "claude-3-5-sonnet-20241022":
         # Register Actor and Executor
         actor = AnthropicActor(
-            model=model, 
+            computer_client=omnibox_client,
+            model=model,
             provider=provider,
-            api_key=api_key, 
+            api_key=api_key,
             api_response_callback=api_response_callback,
             max_tokens=max_tokens,
             only_n_most_recent_images=only_n_most_recent_images
@@ -77,15 +79,16 @@ def sampling_loop_sync(
     else:
         raise ValueError(f"Model {model} not supported")
     executor = AnthropicExecutor(
+        computer_client=omnibox_client,
         output_callback=output_callback,
         tool_output_callback=tool_output_callback,
     )
     print(f"Model Inited: {model}, Provider: {provider}")
-    
+
     tool_result_content = None
-    
+
     print(f"Start the message loop. User messages: {messages}")
-    
+
     if model == "claude-3-5-sonnet-20241022": # Anthropic loop
         while True:
             parsed_screen = omniparser_client() # parsed_screen: {"som_image_base64": dino_labled_img, "parsed_content_list": parsed_content_list, "screen_info"}
@@ -96,12 +99,12 @@ def sampling_loop_sync(
 
             for message, tool_result_content in executor(tools_use_needed, messages):
                 yield message
-        
+
             if not tool_result_content:
                 return messages
 
             messages.append({"content": tool_result_content, "role": "user"})
-    
+
     elif model in set(["omniparser + gpt-4o", "omniparser + o1", "omniparser + o3-mini", "omniparser + R1", "omniparser + qwen2.5vl"]):
         while True:
             parsed_screen = omniparser_client()
@@ -109,6 +112,6 @@ def sampling_loop_sync(
 
             for message, tool_result_content in executor(tools_use_needed, messages):
                 yield message
-        
+
             if not tool_result_content:
                 return messages

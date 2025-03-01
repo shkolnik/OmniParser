@@ -46,8 +46,9 @@ SYSTEM_PROMPT = f"""<SYSTEM_CAPABILITY>
 
 class AnthropicActor:
     def __init__(
-        self, 
-        model: str, 
+        self,
+        computer_client,
+        model: str,
         provider: APIProvider,
         api_key: str,
         api_response_callback: Callable[[APIResponse[BetaMessage]], None],
@@ -61,11 +62,11 @@ class AnthropicActor:
         self.api_response_callback = api_response_callback
         self.max_tokens = max_tokens
         self.only_n_most_recent_images = only_n_most_recent_images
-        
-        self.tool_collection = ToolCollection(ComputerTool())
+
+        self.tool_collection = ToolCollection(ComputerTool(computer_client))
 
         self.system = SYSTEM_PROMPT
-        
+
         self.total_token_usage = 0
         self.total_cost = 0
         self.print_usage = print_usage
@@ -79,7 +80,7 @@ class AnthropicActor:
             self.client = AnthropicBedrock()
 
     def __call__(
-        self, 
+        self,
         *,
         messages: list[BetaMessageParam]
     ):
@@ -106,10 +107,10 @@ class AnthropicActor:
 
         self.total_token_usage += response.usage.input_tokens + response.usage.output_tokens
         self.total_cost += (response.usage.input_tokens * 3 / 1000000 + response.usage.output_tokens * 15 / 1000000)
-        
+
         if self.print_usage:
             print(f"Claude total token usage so far: {self.total_token_usage}, total cost so far: $USD{self.total_cost}")
-        
+
         return response
 
 

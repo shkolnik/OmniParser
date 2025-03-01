@@ -1,19 +1,19 @@
 import requests
 import base64
 from pathlib import Path
-from tools.omnibox_client import OmniboxClient
 from agent.llm_utils.utils import encode_image
 
 OUTPUT_DIR = "./tmp/outputs"
 
 class OmniParserClient:
     def __init__(self,
-                 url: str) -> None:
+                 url: str,
+                 computer_client) -> None:
         self.url = url
-        self.omnibox_client = OmniboxClient(f"http://192.168.64.5:5000")
+        self.computer_client = computer_client
 
     def __call__(self,):
-        screenshot, screenshot_path = self.omnibox_client.screenshot()
+        screenshot, screenshot_path = self.computer_client.screenshot()
         screenshot_path = str(screenshot_path)
         image_base64 = encode_image(screenshot_path)
         response = requests.post(self.url, json={"base64_image": image_base64})

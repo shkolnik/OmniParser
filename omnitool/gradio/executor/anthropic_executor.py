@@ -17,12 +17,13 @@ from tools import ComputerTool, ToolCollection, ToolResult
 
 class AnthropicExecutor:
     def __init__(
-        self, 
-        output_callback: Callable[[BetaContentBlockParam], None], 
+        self,
+        computer_client,
+        output_callback: Callable[[BetaContentBlockParam], None],
         tool_output_callback: Callable[[Any, str], None],
     ):
         self.tool_collection = ToolCollection(
-            ComputerTool()
+            ComputerTool(computer_client)
         )
         self.output_callback = output_callback
         self.tool_output_callback = tool_output_callback
@@ -36,7 +37,7 @@ class AnthropicExecutor:
             messages.append(new_message)
         else:
             print("new_message already in messages, there are duplicates.")
-        
+
         tool_result_content: list[BetaToolResultBlockParam] = []
         for content_block in cast(list[BetaContentBlock], response.content):
             self.output_callback(content_block, sender="bot")
@@ -47,9 +48,9 @@ class AnthropicExecutor:
                     name=content_block.name,
                     tool_input=cast(dict[str, Any], content_block.input),
                 ))
-                
+
                 self.output_callback(result, sender="bot")
-                
+
                 tool_result_content.append(
                     _make_api_tool_result(result, content_block.id)
                 )
@@ -57,10 +58,10 @@ class AnthropicExecutor:
 
             # Craft messages based on the content_block
             # Note: to display the messages in the gradio, you should organize the messages in the following way (user message, bot message)
-            
+
             display_messages = _message_display_callback(messages)
             # display_messages = []
-            
+
             # Send the messages to the gradio
             for user_msg, bot_msg in display_messages:
                 # yield [user_msg, bot_msg], tool_result_content
@@ -68,7 +69,7 @@ class AnthropicExecutor:
 
         if not tool_result_content:
             return messages
-        
+
         return tool_result_content
 
 def _message_display_callback(messages):
