@@ -13,7 +13,7 @@ from anthropic.types.beta import (
     BetaMessage,
     BetaMessageParam
 )
-from tools import ToolResult, OmniboxClient
+from tools import ToolResult, VNCClient
 
 from agent.llm_utils.omniparserclient import OmniParserClient
 from agent.anthropic_agent import AnthropicActor
@@ -53,12 +53,12 @@ def sampling_loop_sync(
     Synchronous agentic sampling loop for the assistant/tool interaction of computer use.
     """
     print('in sampling_loop_sync, model:', model)
-    omnibox_client = OmniboxClient(f"http://192.168.64.5:5000")
-    omniparser_client = OmniParserClient(url=f"http://{omniparser_url}/parse/", computer_client=omnibox_client)
+    computer_client = VNCClient("vnc://:password@192.168.64.5:5900")
+    omniparser_client = OmniParserClient(url=f"http://{omniparser_url}/parse/", computer_client=computer_client)
     if model == "claude-3-5-sonnet-20241022":
         # Register Actor and Executor
         actor = AnthropicActor(
-            computer_client=omnibox_client,
+            computer_client=computer_client,
             model=model,
             provider=provider,
             api_key=api_key,
@@ -79,7 +79,7 @@ def sampling_loop_sync(
     else:
         raise ValueError(f"Model {model} not supported")
     executor = AnthropicExecutor(
-        computer_client=omnibox_client,
+        computer_client=computer_client,
         output_callback=output_callback,
         tool_output_callback=tool_output_callback,
     )
@@ -115,3 +115,5 @@ def sampling_loop_sync(
 
             if not tool_result_content:
                 return messages
+
+    computer_client.shutdown()

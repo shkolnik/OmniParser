@@ -82,6 +82,7 @@ class ComputerTool(BaseAnthropicTool):
         self.width, self.height = self.computer_client.current_screen_size()
         print(f"screen size: {self.width}, {self.height}")
 
+        # TODO Move key conversion to ComputerClient class since it varies
         self.key_conversion = {"Page_Down": "pagedown",
                                "Page_Up": "pageup",
                                "Super_L": "win",
@@ -115,9 +116,10 @@ class ComputerTool(BaseAnthropicTool):
                 self.computer_client.mouse_move(x, y)
                 return ToolResult(output=f"Moved mouse to ({x}, {y})")
             elif action == "left_click_drag":
-                current_x, current_y = self.computer_client.current_mouse_coordinates()
+                # current_x, current_y = self.computer_client.current_mouse_coordinates()
                 self.computer_client.mouse_drag(x, y)
-                return ToolResult(output=f"Dragged mouse from ({current_x}, {current_y}) to ({x}, {y})")
+                # return ToolResult(output=f"Dragged mouse from ({current_x}, {current_y}) to ({x}, {y})")
+                return ToolResult(output=f"Clicked and dragged mouse to ({x}, {y})")
 
         if action in ("key", "type"):
             if text is None:
@@ -154,7 +156,7 @@ class ComputerTool(BaseAnthropicTool):
             "double_click",
             "middle_click",
             "screenshot",
-            "cursor_position",
+            # "cursor_position",
             "left_press",
         ):
             if text is not None:
@@ -165,9 +167,9 @@ class ComputerTool(BaseAnthropicTool):
             if action == "screenshot":
                 _screenshot, path = self.computer_client.screenshot()
                 return ToolResult(base64_image=base64.b64encode(path.read_bytes()).decode())
-            elif action == "cursor_position":
-                x, y = self.computer_client.current_mouse_coordinates()
-                return ToolResult(output=f"X={x},Y={y}")
+            # elif action == "cursor_position":
+            #     x, y = self.computer_client.current_mouse_coordinates()
+            #     return ToolResult(output=f"X={x},Y={y}")
             else:
                 if action == "left_click":
                     self.computer_client.mouse_left_click()

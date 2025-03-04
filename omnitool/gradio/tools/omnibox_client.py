@@ -76,6 +76,9 @@ class OmniboxClient:
     def __init__(self, base_url: str):
         self.base_url = base_url
 
+    def shutdown(self) -> NoReturn:
+        return # NOOP
+
     def screenshot(self):
         return get_screenshot(self.base_url)
 
