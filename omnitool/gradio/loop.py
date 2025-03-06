@@ -47,13 +47,14 @@ def sampling_loop_sync(
     api_key: str,
     only_n_most_recent_images: int | None = 2,
     max_tokens: int = 4096,
+    vm_url: str,
     omniparser_url: str
 ):
     """
     Synchronous agentic sampling loop for the assistant/tool interaction of computer use.
     """
     print('in sampling_loop_sync, model:', model)
-    computer_client = VNCClient("vnc://:password@192.168.64.5:5900")
+    computer_client = VNCClient(vm_url)
     omniparser_client = OmniParserClient(url=f"http://{omniparser_url}/parse/", computer_client=computer_client)
     if model == "claude-3-5-sonnet-20241022":
         # Register Actor and Executor

@@ -1,5 +1,5 @@
 """
-python app.py --windows_host_url localhost:8006 --omniparser_server_url localhost:8000
+python app.py --vm_url localhost:8006 --omniparser_server_url localhost:8000
 """
 
 import os
@@ -35,7 +35,7 @@ Type a message and press submit to start OmniTool. Press stop to pause, and pres
 def parse_arguments():
 
     parser = argparse.ArgumentParser(description="Gradio App")
-    parser.add_argument("--windows_host_url", type=str, default='localhost:8006')
+    parser.add_argument("--vm_url", type=str, default='localhost:8006')
     parser.add_argument("--omniparser_server_url", type=str, default="localhost:8000")
     return parser.parse_args()
 args = parse_arguments()
@@ -130,12 +130,12 @@ def _tool_output_callback(tool_output: ToolResult, tool_id: str, tool_state: dic
 
 def chatbot_output_callback(message, chatbot_state, hide_images=False, sender="bot"):
     def _render_message(message: str | BetaTextBlock | BetaToolUseBlock | ToolResult, hide_images=False):
-    
+
         print(f"_render_message: {str(message)[:100]}")
-        
+
         if isinstance(message, str):
             return message
-        
+
         is_tool_result = not isinstance(message, str) and (
             isinstance(message, ToolResult)
             or message.__class__.__name__ == "ToolResult"
@@ -165,7 +165,7 @@ def chatbot_output_callback(message, chatbot_state, hide_images=False, sender="b
         elif isinstance(message, BetaToolUseBlock) or isinstance(message, ToolUseBlock):
             # return f"Tool Use: {message.name}\nInput: {message.input}"
             return f"Next I will perform the following action: {message.input}"
-        else:  
+        else:
             return message
 
     def _truncate_string(s, max_length=500):
@@ -175,12 +175,12 @@ def chatbot_output_callback(message, chatbot_state, hide_images=False, sender="b
         return s
     # processing Anthropic messages
     message = _render_message(message, hide_images)
-    
+
     if sender == "bot":
         chatbot_state.append((None, message))
     else:
         chatbot_state.append((message, None))
-    
+
     # Create a concise version of the chatbot state for printing
     concise_state = [(_truncate_string(user_msg), _truncate_string(bot_msg))
                         for user_msg, bot_msg in chatbot_state]
@@ -189,22 +189,22 @@ def chatbot_output_callback(message, chatbot_state, hide_images=False, sender="b
 def valid_params(user_input, state):
     """Validate all requirements and return a list of error messages."""
     errors = []
-    
-    for server_name, url in [('Windows Host', args.windows_host_url), ('OmniParser Server', args.omniparser_server_url)]:
-        try:
-            url = f'http://{url}/probe'
-            response = requests.get(url, timeout=3)
-            if response.status_code != 200:
-                errors.append(f"{server_name} is not responding")
-        except RequestException as e:
-            errors.append(f"{server_name} is not responding")
-    
+
+    # for server_name, url in [('Windows Host', args.vm_url), ('OmniParser Server', args.omniparser_server_url)]:
+    #     try:
+    #         url = f'http://{url}/probe'
+    #         response = requests.get(url, timeout=3)
+    #         if response.status_code != 200:
+    #             errors.append(f"{server_name} is not responding")
+    #     except RequestException as e:
+    #         errors.append(f"{server_name} is not responding")
+
     if not state["api_key"].strip():
         errors.append("LLM API Key is not set")
 
     if not user_input:
         errors.append("no computer use request provided")
-    
+
     return errors
 
 def process_input(user_input, state):
@@ -215,7 +215,7 @@ def process_input(user_input, state):
     errors = valid_params(user_input, state)
     if errors:
         raise gr.Error("Validation errors: " + ", ".join(errors))
-    
+
     # Append the user message to state["messages"]
     state["messages"].append(
         {
@@ -242,13 +242,14 @@ def process_input(user_input, state):
         api_key=state["api_key"],
         only_n_most_recent_images=state["only_n_most_recent_images"],
         max_tokens=16384,
-        omniparser_url=args.omniparser_server_url
-    ):  
+        vm_url=args.vm_url,
+        omniparser_url=args.omniparser_server_url,
+    ):
         if loop_msg is None or state.get("stop"):
             yield state['chatbot_messages']
             print("End of task. Close the loop.")
             break
-            
+
         yield state['chatbot_messages']  # Yield the updated chatbot_messages to update the chatbot UI
 
 def stop_app(state):
@@ -260,7 +261,7 @@ def get_header_image_base64():
         # Get the absolute path to the image relative to this script
         script_dir = Path(__file__).parent
         image_path = script_dir.parent.parent / "imgs" / "header_bar_thin.png"
-        
+
         with open(image_path, "rb") as image_file:
             encoded_string = base64.b64encode(image_file.read()).decode()
             return f'data:image/png;base64,{encoded_string}'
@@ -283,9 +284,9 @@ with gr.Blocks(theme=gr.themes.Default()) as demo:
         </style>
     """)
     state = gr.State({})
-    
+
     setup_state(state.value)
-    
+
     header_image = get_header_image_base64()
     if header_image:
         gr.HTML(f'<img src="{header_image}" alt="OmniTool Header" width="100%">', elem_classes="no-padding")
@@ -297,7 +298,7 @@ with gr.Blocks(theme=gr.themes.Default()) as demo:
         gr.Markdown(INTRO_TEXT, elem_classes="markdown-text")
 
 
-    with gr.Accordion("Settings", open=True): 
+    with gr.Accordion("Settings", open=True):
         with gr.Row():
             with gr.Column():
                 model = gr.Dropdown(
@@ -345,7 +346,7 @@ with gr.Blocks(theme=gr.themes.Default()) as demo:
             chatbot = gr.Chatbot(label="Chatbot History", autoscroll=True, height=580)
         with gr.Column(scale=3):
             iframe = gr.HTML(
-                f'<iframe src="http://{args.windows_host_url}/vnc.html?view_only=1&autoconnect=1&resize=scale" width="100%" height="580" allow="fullscreen"></iframe>',
+                f'<iframe src="http://{args.vm_url}/vnc.html?view_only=1&autoconnect=1&resize=scale" width="100%" height="580" allow="fullscreen"></iframe>',
                 container=False,
                 elem_classes="no-padding"
             )
@@ -353,7 +354,7 @@ with gr.Blocks(theme=gr.themes.Default()) as demo:
     def update_model(model_selection, state):
         state["model"] = model_selection
         print(f"Model updated to: {state['model']}")
-        
+
         if model_selection == "claude-3-5-sonnet-20241022":
             provider_choices = [option.value for option in APIProvider if option.value != "openai"]
         elif model_selection in set(["omniparser + gpt-4o", "omniparser + o1", "omniparser + o3-mini"]):
@@ -388,19 +389,19 @@ with gr.Blocks(theme=gr.themes.Default()) as demo:
 
     def update_only_n_images(only_n_images_value, state):
         state["only_n_most_recent_images"] = only_n_images_value
-   
+
     def update_provider(provider_value, state):
         # Update state
         state["provider"] = provider_value
         state["api_key"] = state.get(f"{provider_value}_api_key", "")
-        
+
         # Calls to update other components UI
         api_key_update = gr.update(
             placeholder=f"{provider_value.title()} API Key",
             value=state["api_key"]
         )
         return api_key_update
-                
+
     def update_api_key(api_key_value, state):
         state["api_key"] = api_key_value
         state[f'{state["provider"]}_api_key'] = api_key_value
@@ -421,6 +422,6 @@ with gr.Blocks(theme=gr.themes.Default()) as demo:
 
     submit_button.click(process_input, [chat_input, state], chatbot)
     stop_button.click(stop_app, [state], None)
-    
+
 if __name__ == "__main__":
     demo.launch(server_name="0.0.0.0", server_port=7888)
