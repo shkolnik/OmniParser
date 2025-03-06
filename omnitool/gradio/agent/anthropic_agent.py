@@ -82,11 +82,16 @@ class AnthropicActor:
     def __call__(
         self,
         *,
-        messages: list[BetaMessageParam]
+        messages: list[BetaMessageParam],
+        parsed_screen: list[str, list, dict]
     ):
         """
         Generate a response given history messages.
         """
+        screen_info_block = TextBlock(text='Below is the structured accessibility information of the current UI screen, which includes text and icons you can operate on, take these information into account when you are making the prediction for the next action. Note you will still need to take screenshot to get the image: \n' + parsed_screen['screen_info'], type='text')
+        screen_info_dict = {"role": "user", "content": [screen_info_block]}
+        messages.append(screen_info_dict)
+
         if self.only_n_most_recent_images:
             _maybe_filter_to_n_most_recent_images(messages, self.only_n_most_recent_images)
 

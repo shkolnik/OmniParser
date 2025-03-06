@@ -202,7 +202,8 @@ class VLMAgent:
                                             name='computer', type='tool_use')
             response_content.append(sim_content_block)
         response_message = BetaMessage(id=f'toolu_{uuid.uuid4()}', content=response_content, model='', role='assistant', type='message', stop_reason='tool_use', usage=BetaUsage(input_tokens=0, output_tokens=0))
-        return response_message, vlm_response_json
+        # return response_message, vlm_response_json
+        return response_message
 
     def _api_response_callback(self, response: APIResponse):
         self.api_response_callback(response)

@@ -131,10 +131,13 @@ def _tool_output_callback(tool_output: ToolResult, tool_id: str, tool_state: dic
 def chatbot_output_callback(message, chatbot_state, hide_images=False, sender="bot"):
     def _render_message(message: str | BetaTextBlock | BetaToolUseBlock | ToolResult, hide_images=False):
 
+
         print(f"_render_message: {str(message)[:100]}")
+
 
         if isinstance(message, str):
             return message
+
 
         is_tool_result = not isinstance(message, str) and (
             isinstance(message, ToolResult)
@@ -241,7 +244,8 @@ def process_input(user_input, state):
         api_response_callback=partial(_api_response_callback, response_state=state["responses"]),
         api_key=state["api_key"],
         only_n_most_recent_images=state["only_n_most_recent_images"],
-        max_tokens=16384,
+        # max_tokens=16384,
+        max_tokens=8192,
         vm_url=args.vm_url,
         omniparser_url=args.omniparser_server_url,
     ):

@@ -90,31 +90,18 @@ def sampling_loop_sync(
 
     print(f"Start the message loop. User messages: {messages}")
 
-    if model == "claude-3-5-sonnet-20241022": # Anthropic loop
-        while True:
-            parsed_screen = omniparser_client() # parsed_screen: {"som_image_base64": dino_labled_img, "parsed_content_list": parsed_content_list, "screen_info"}
-            screen_info_block = TextBlock(text='Below is the structured accessibility information of the current UI screen, which includes text and icons you can operate on, take these information into account when you are making the prediction for the next action. Note you will still need to take screenshot to get the image: \n' + parsed_screen['screen_info'], type='text')
-            screen_info_dict = {"role": "user", "content": [screen_info_block]}
-            messages.append(screen_info_dict)
-            tools_use_needed = actor(messages=messages)
+    # Main loop
+    while True:
+        parsed_screen = omniparser_client()
+        tools_use_needed = actor(messages=messages, parsed_screen=parsed_screen)
 
-            for message, tool_result_content in executor(tools_use_needed, messages):
-                yield message
+        for message, tool_result_content in executor(tools_use_needed, messages):
+            yield message
 
-            if not tool_result_content:
-                return messages
+        if not tool_result_content:
+            return messages
 
+        if model == "claude-3-5-sonnet-20241022":
             messages.append({"content": tool_result_content, "role": "user"})
 
-    elif model in set(["omniparser + gpt-4o", "omniparser + o1", "omniparser + o3-mini", "omniparser + R1", "omniparser + qwen2.5vl"]):
-        while True:
-            parsed_screen = omniparser_client()
-            tools_use_needed, vlm_response_json = actor(messages=messages, parsed_screen=parsed_screen)
-
-            for message, tool_result_content in executor(tools_use_needed, messages):
-                yield message
-
-            if not tool_result_content:
-                return messages
-
-    computer_client.shutdown()
+    # computer_client.shutdown()
