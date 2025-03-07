@@ -23,6 +23,11 @@ import requests
 from requests.exceptions import RequestException
 import base64
 
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
 CONFIG_DIR = Path("~/.anthropic").expanduser()
 API_KEY_FILE = CONFIG_DIR / "api_key"
 
@@ -46,6 +51,41 @@ class Sender(StrEnum):
     BOT = "assistant"
     TOOL = "tool"
 
+def update_model(model_selection, state):
+    state["model"] = model_selection
+    print(f"Model updated to: {state['model']}")
+
+    if model_selection == "claude-3-5-sonnet-20241022":
+        provider_choices = [option.value for option in APIProvider if option.value != "openai"]
+    elif model_selection in set(["omniparser + gpt-4o", "omniparser + o1", "omniparser + o3-mini"]):
+        provider_choices = ["openai"]
+    elif model_selection == "omniparser + R1":
+        provider_choices = ["groq"]
+    elif model_selection == "omniparser + qwen2.5vl":
+        provider_choices = ["dashscope"]
+    else:
+        provider_choices = [option.value for option in APIProvider]
+    default_provider_value = provider_choices[0]
+
+    provider_interactive = len(provider_choices) > 1
+    api_key_placeholder = f"{default_provider_value.title()} API Key"
+
+    # Update state
+    state["provider"] = default_provider_value
+    state["api_key"] = state.get(f"{default_provider_value}_api_key", "")
+
+    # Calls to update other components UI
+    provider_update = gr.update(
+        choices=provider_choices,
+        value=default_provider_value,
+        interactive=provider_interactive
+    )
+    api_key_update = gr.update(
+        placeholder=api_key_placeholder,
+        value=state["api_key"]
+    )
+
+    return provider_update, api_key_update
 
 def setup_state(state):
     if "messages" not in state:
@@ -72,6 +112,7 @@ def setup_state(state):
         state['chatbot_messages'] = []
     if 'stop' not in state:
         state['stop'] = False
+    update_model(state["model"], state)
 
 async def main(state):
     """Render loop for Gradio"""
@@ -355,41 +396,7 @@ with gr.Blocks(theme=gr.themes.Default()) as demo:
                 elem_classes="no-padding"
             )
 
-    def update_model(model_selection, state):
-        state["model"] = model_selection
-        print(f"Model updated to: {state['model']}")
 
-        if model_selection == "claude-3-5-sonnet-20241022":
-            provider_choices = [option.value for option in APIProvider if option.value != "openai"]
-        elif model_selection in set(["omniparser + gpt-4o", "omniparser + o1", "omniparser + o3-mini"]):
-            provider_choices = ["openai"]
-        elif model_selection == "omniparser + R1":
-            provider_choices = ["groq"]
-        elif model_selection == "omniparser + qwen2.5vl":
-            provider_choices = ["dashscope"]
-        else:
-            provider_choices = [option.value for option in APIProvider]
-        default_provider_value = provider_choices[0]
-
-        provider_interactive = len(provider_choices) > 1
-        api_key_placeholder = f"{default_provider_value.title()} API Key"
-
-        # Update state
-        state["provider"] = default_provider_value
-        state["api_key"] = state.get(f"{default_provider_value}_api_key", "")
-
-        # Calls to update other components UI
-        provider_update = gr.update(
-            choices=provider_choices,
-            value=default_provider_value,
-            interactive=provider_interactive
-        )
-        api_key_update = gr.update(
-            placeholder=api_key_placeholder,
-            value=state["api_key"]
-        )
-
-        return provider_update, api_key_update
 
     def update_only_n_images(only_n_images_value, state):
         state["only_n_most_recent_images"] = only_n_images_value
