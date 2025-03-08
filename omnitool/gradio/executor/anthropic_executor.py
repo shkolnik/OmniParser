@@ -12,6 +12,8 @@ from anthropic.types.beta import (
 )
 from anthropic.types import TextBlock
 from anthropic.types.beta import BetaMessage, BetaTextBlock, BetaToolUseBlock
+# from anthropic.types.tool_use_block import ToolUseBlock
+from agent.llm_utils.utils import ToolResultMessage
 from tools import ComputerTool, ToolCollection, ToolResult
 
 
@@ -28,49 +30,61 @@ class AnthropicExecutor:
         self.output_callback = output_callback
         self.tool_output_callback = tool_output_callback
 
-    def __call__(self, response: BetaMessage, messages: list[BetaMessageParam]):
-        new_message = {
-            "role": "assistant",
-            "content": cast(list[BetaContentBlockParam], response.content),
-        }
-        if new_message not in messages:
-            messages.append(new_message)
-        else:
-            print("new_message already in messages, there are duplicates.")
+    def __call__(self, requested_action: BetaToolUseBlock): #, messages: list[BetaMessageParam]):
+        # new_message = {
+        #     "role": "assistant",
+        #     "content": cast(list[BetaContentBlockParam], response.content),
+        # }
+        # if new_message not in messages:
+        #     messages.append(new_message)
+        # else:
+        #     print("new_message already in messages, there are duplicates.")
 
-        tool_result_content: list[BetaToolResultBlockParam] = []
-        for content_block in cast(list[BetaContentBlock], response.content):
-            self.output_callback(content_block, sender="bot")
+        # tool_result_content: list[BetaToolResultBlockParam] = []
+        # for content_block in cast(list[BetaContentBlock], response.content):
+        #     # TODO Turn this into a normal list of messages
+        #     if isinstance(content_block, BetaTextBlock) or isinstance(content_block, TextBlock):
+        #         # return f"Analysis: {content_block.text}"
+        #         self.output_callback(f"Analysis: {content_block.text}", sender="bot")
+        #     elif isinstance(content_block, BetaToolUseBlock) or isinstance(content_block, ToolUseBlock):
+        #         # return f"Tool Use: {message.name}\nInput: {message.input}"
+        #         # return f"Next I will perform the following action: {content_block.input}"
+        self.output_callback(f"Next I will perform the following action: {requested_action.input}", sender="bot")
+            # else:
+            #     raise "uh oh"
+
             # Execute the tool
-            if content_block.type == "tool_use":
-                # Run the asynchronous tool execution in a synchronous context
-                result = asyncio.run(self.tool_collection.run(
-                    name=content_block.name,
-                    tool_input=cast(dict[str, Any], content_block.input),
-                ))
+            # if content_block.type == "tool_use":
+        # Run the asynchronous tool execution in a synchronous context
+        result = asyncio.run(self.tool_collection.run(
+            name=requested_action.name,
+            tool_input=cast(dict[str, Any], requested_action.input),
+        ))
 
-                self.output_callback(result, sender="bot")
+        self.output_callback(result, sender="bot")
 
-                tool_result_content.append(
-                    _make_api_tool_result(result, content_block.id)
-                )
-                self.tool_output_callback(result, content_block.id)
+        tool_result_message = ToolResultMessage(result.output or result.error)
+        return tool_result_message
+        # tool_result_content.append(
+        #     _make_api_tool_result(result, content_block.id)
+        # )
+        # self.tool_output_callback(result, content_block.id)
 
             # Craft messages based on the content_block
             # Note: to display the messages in the gradio, you should organize the messages in the following way (user message, bot message)
 
-            display_messages = _message_display_callback(messages)
+            # display_messages = _message_display_callback(messages)
             # display_messages = []
 
             # Send the messages to the gradio
-            for user_msg, bot_msg in display_messages:
-                # yield [user_msg, bot_msg], tool_result_content
-                yield [None, None], tool_result_content
+            # for user_msg, bot_msg in display_messages:
+            #     # yield [user_msg, bot_msg], tool_result_content
+            #     yield [None, None], tool_result_content
 
-        if not tool_result_content:
-            return messages
+        # if not tool_result_content:
+        #     return messages
 
-        return tool_result_content
+        # return tool_result_content
 
 def _message_display_callback(messages):
     display_messages = []

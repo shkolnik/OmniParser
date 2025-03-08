@@ -12,7 +12,7 @@ from anthropic.types.beta import BetaMessage, BetaTextBlock, BetaToolUseBlock, B
 
 from agent.llm_utils.oaiclient import run_oai_interleaved
 from agent.llm_utils.groqclient import run_groq_interleaved
-from agent.llm_utils.utils import is_image_path
+from agent.llm_utils.utils import is_image_path, UserMessage, BotMessage, ToolResultMessage, ParsedScreenshot
 import time
 import re
 
@@ -67,33 +67,64 @@ class VLMAgent:
 
         self.system = ''
 
-    def __call__(self, messages: list, parsed_screen: list[str, list, dict]):
-        self.step_count += 1
-        image_base64 = parsed_screen['original_screenshot_base64']
-        latency_omniparser = parsed_screen['latency']
-        self.output_callback(f'-- Step {self.step_count}: --', sender="bot")
-        screen_info = str(parsed_screen['screen_info'])
-        screenshot_uuid = parsed_screen['screenshot_uuid']
-        screen_width, screen_height = parsed_screen['width'], parsed_screen['height']
+    def __call__(self, messages: list):
+        parsed_screenshot = None
+        for message in reversed(messages):
+            if type(message) is ParsedScreenshot:
+                parsed_screenshot = message
+                parsed_screen = parsed_screenshot.parsed_elements
+                break
 
-        boxids_and_labels = parsed_screen["screen_info"]
+        if parsed_screenshot is None:
+            raise 'Request to the LLM must include a parsed screenshot.'
+
+        self.step_count += 1
+        # image_base64 = parsed_screen['original_screenshot_base64']
+        latency_omniparser = parsed_screenshot.parse_time_sec
+        self.output_callback(f'-- Step {self.step_count}: --', sender="bot")
+        screen_info = parsed_screenshot.parsed_elements_formatted()
+        boxids_and_labels = screen_info
+        # screenshot_uuid = parsed_screen['screenshot_uuid']
+        screen_width, screen_height = parsed_screenshot.width(), parsed_screenshot.height() #parsed_screen['width'], parsed_screen['height']
+
         system = self._get_system_prompt(boxids_and_labels)
 
-        # drop looping actions msg, byte image etc
-        planner_messages = messages
-        _remove_som_images(planner_messages)
-        _maybe_filter_to_n_most_recent_images(planner_messages, self.only_n_most_recent_images)
+        messages_for_llm = []
+        for message in messages:
+            if type(message) is UserMessage:
+                messages_for_llm.append({
+                    "role": 'user',
+                    "content": message.content
+                })
+            elif type(message) is BotMessage:
+                messages_for_llm.append({
+                    "role": 'assistant',
+                    "content": message.content
+                })
+            elif type(message) is ToolResultMessage:
+                messages_for_llm.append({
+                    "role": 'tool',
+                    "content": message.content
+                })
+            elif type(message) is ParsedScreenshot:
+                None
 
-        if isinstance(planner_messages[-1], dict):
-            if not isinstance(planner_messages[-1]["content"], list):
-                planner_messages[-1]["content"] = [planner_messages[-1]["content"]]
-            planner_messages[-1]["content"].append(f"{OUTPUT_DIR}/screenshot_{screenshot_uuid}.png")
-            planner_messages[-1]["content"].append(f"{OUTPUT_DIR}/screenshot_som_{screenshot_uuid}.png")
+        # drop looping actions msg, byte image etc
+        # planner_messages = messages.copy()
+        # planner_messages = messages
+        # _remove_som_images(planner_messages)
+        # _maybe_filter_to_n_most_recent_images(planner_messages, self.only_n_most_recent_images)
+
+        # if isinstance(planner_messages[-1], dict):
+        #     if not isinstance(planner_messages[-1]["content"], list):
+        #         planner_messages[-1]["content"] = [planner_messages[-1]["content"]]
+        #     planner_messages[-1]["content"].append(f"{OUTPUT_DIR}/screenshot_{screenshot_uuid}.png")
+        #     planner_messages[-1]["content"].append(f"{OUTPUT_DIR}/screenshot_som_{screenshot_uuid}.png")
 
         start = time.time()
         if "gpt" in self.model or "o1" in self.model or "o3-mini" in self.model:
             vlm_response, token_usage = run_oai_interleaved(
-                messages=planner_messages,
+                messages=messages_for_llm,
                 system=system,
                 model_name=self.model,
                 api_key=self.api_key,
@@ -111,7 +142,7 @@ class VLMAgent:
                 self.total_cost += (token_usage * 1.1 / 1000000)  # https://openai.com/api/pricing/
         elif "r1" in self.model:
             vlm_response, token_usage = run_groq_interleaved(
-                messages=planner_messages,
+                messages=messages_for_llm,
                 system=system,
                 model_name=self.model,
                 api_key=self.api_key,
@@ -122,7 +153,7 @@ class VLMAgent:
             self.total_cost += (token_usage * 0.99 / 1000000)
         elif "qwen" in self.model:
             vlm_response, token_usage = run_oai_interleaved(
-                messages=planner_messages,
+                messages=messages_for_llm,
                 system=system,
                 model_name=self.model,
                 api_key=self.api_key,
@@ -146,13 +177,15 @@ class VLMAgent:
         vlm_response_json = extract_data(vlm_response, "json")
         vlm_response_json = json.loads(vlm_response_json)
 
-        img_to_show_base64 = parsed_screen["som_image_base64"]
+        # img_to_show_base64 = parsed_screen["som_image_base64"]
         if "Box ID" in vlm_response_json:
             try:
-                bbox = parsed_screen["parsed_content_list"][int(vlm_response_json["Box ID"])]["bbox"]
+                box_id = int(vlm_response_json["Box ID"])
+                bbox = parsed_screenshot.parsed_elements[box_id]["bbox"]
                 vlm_response_json["box_centroid_coordinate"] = [int((bbox[0] + bbox[2]) / 2 * screen_width), int((bbox[1] + bbox[3]) / 2 * screen_height)]
-                img_to_show_data = base64.b64decode(img_to_show_base64)
-                img_to_show = Image.open(BytesIO(img_to_show_data))
+                # img_to_show_data = base64.b64decode(img_to_show_base64)
+                # img_to_show = Image.open(BytesIO(img_to_show_data))
+                img_to_show = parsed_screenshot.annotated_image.copy()
 
                 draw = ImageDraw.Draw(img_to_show)
                 x, y = vlm_response_json["box_centroid_coordinate"]
@@ -163,10 +196,10 @@ class VLMAgent:
                 buffered = BytesIO()
                 img_to_show.save(buffered, format="PNG")
                 img_to_show_base64 = base64.b64encode(buffered.getvalue()).decode("utf-8")
+                self.output_callback(f'<img src="data:image/png;base64,{img_to_show_base64}">', sender="bot")
             except:
                 print(f"Error parsing: {vlm_response_json}")
                 pass
-        self.output_callback(f'<img src="data:image/png;base64,{img_to_show_base64}">', sender="bot")
         self.output_callback(
                     f'<details>'
                     f'  <summary>Parsed Screen elemetns by OmniParser</summary>'
@@ -182,12 +215,14 @@ class VLMAgent:
                 vlm_plan_str += f'\n{key}: {value}'
 
         # construct the response so that anthropicExcutor can execute the tool
-        response_content = [BetaTextBlock(text=vlm_plan_str, type='text')]
+        # llm_message =
+        # response_content = [BetaTextBlock(text=vlm_plan_str, type='text')]
+        requested_actions: list[BetaToolUseBlock] = []
         if 'box_centroid_coordinate' in vlm_response_json:
             move_cursor_block = BetaToolUseBlock(id=f'toolu_{uuid.uuid4()}',
                                             input={'action': 'mouse_move', 'coordinate': vlm_response_json["box_centroid_coordinate"]},
                                             name='computer', type='tool_use')
-            response_content.append(move_cursor_block)
+            requested_actions.append(move_cursor_block)
 
         if vlm_response_json["Next Action"] == "None":
             print("Task paused/completed.")
@@ -195,13 +230,20 @@ class VLMAgent:
             sim_content_block = BetaToolUseBlock(id=f'toolu_{uuid.uuid4()}',
                                         input={'action': vlm_response_json["Next Action"], 'text': vlm_response_json["value"]},
                                         name='computer', type='tool_use')
-            response_content.append(sim_content_block)
+            requested_actions.append(sim_content_block)
         else:
             sim_content_block = BetaToolUseBlock(id=f'toolu_{uuid.uuid4()}',
                                             input={'action': vlm_response_json["Next Action"]},
                                             name='computer', type='tool_use')
-            response_content.append(sim_content_block)
-        response_message = BetaMessage(id=f'toolu_{uuid.uuid4()}', content=response_content, model='', role='assistant', type='message', stop_reason='tool_use', usage=BetaUsage(input_tokens=0, output_tokens=0))
+            requested_actions.append(sim_content_block)
+
+        # response_message = BetaMessage(id=f'toolu_{uuid.uuid4()}', content=response_content, model='', role='assistant', type='message', stop_reason='tool_use', usage=BetaUsage(input_tokens=0, output_tokens=0))
+        response_message = BotMessage(
+            vlm_plan_str,
+            {'system_prompt': system, 'messages': messages_for_llm},
+            requested_actions
+        )
+
         # return response_message, vlm_response_json
         return response_message
 

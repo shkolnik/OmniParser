@@ -3,6 +3,7 @@ Agentic sampling loop that calls the Anthropic API and local implenmentation of 
 """
 from collections.abc import Callable
 from enum import StrEnum
+import time
 
 from anthropic import APIResponse
 from anthropic.types import (
@@ -16,9 +17,11 @@ from anthropic.types.beta import (
 from tools import ToolResult, VNCClient
 
 from agent.llm_utils.omniparserclient import OmniParserClient
+from agent.llm_utils.utils import BotMessage, ToolResultMessage, UserMessage, ParsedScreenshot
 from agent.anthropic_agent import AnthropicActor
 from agent.vlm_agent import VLMAgent
 from executor.anthropic_executor import AnthropicExecutor
+
 
 BETA_FLAG = "computer-use-2024-10-22"
 
@@ -54,6 +57,10 @@ def sampling_loop_sync(
     Synchronous agentic sampling loop for the assistant/tool interaction of computer use.
     """
     print('in sampling_loop_sync, model:', model)
+    assert(len(messages) == 1)
+    initial_request = UserMessage(messages[0]['content'][0].text)
+    session_history = [initial_request]
+
     computer_client = VNCClient(vm_url)
     omniparser_client = OmniParserClient(url=f"http://{omniparser_url}/parse/", computer_client=computer_client)
     if model == "claude-3-5-sonnet-20241022":
@@ -86,22 +93,33 @@ def sampling_loop_sync(
     )
     print(f"Model Inited: {model}, Provider: {provider}")
 
-    tool_result_content = None
+    # tool_result_content = None
 
     print(f"Start the message loop. User messages: {messages}")
 
     # Main loop
     while True:
-        parsed_screen = omniparser_client()
-        tools_use_needed = actor(messages=messages, parsed_screen=parsed_screen)
+        parsed_screen: ParsedScreenshot = omniparser_client()
+        session_history.append(parsed_screen)
+        # tools_use_needed = actor(messages=messages, parsed_screen=parsed_screen)
+        bot_message: BotMessage = actor(session_history)
+        session_history.append(bot_message)
 
-        for message, tool_result_content in executor(tools_use_needed, messages):
-            yield message
+        if len(bot_message.requested_actions) == 0:
+            return
 
-        if not tool_result_content:
-            return messages
+        for requested_action in bot_message.requested_actions:
+            tool_result_message: ToolResultMessage = executor(requested_action)
+            session_history.append(tool_result_message)
 
-        if model == "claude-3-5-sonnet-20241022":
-            messages.append({"content": tool_result_content, "role": "user"})
+        time.sleep(1)
+        # for message, tool_result_content in executor(tools_use_needed, messages):
+        #     yield message
+
+        # if not tool_result_content:
+        #     return messages
+
+        # if model == "claude-3-5-sonnet-20241022":
+        #     messages.append({"content": tool_result_content, "role": "user"})
 
     # computer_client.shutdown()
