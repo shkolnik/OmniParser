@@ -1,7 +1,6 @@
 from io import BytesIO
 import requests
 import base64
-from pathlib import Path
 from agent.llm_utils.utils import encode_image, ParsedScreenshot
 from PIL import Image
 
@@ -24,17 +23,9 @@ class OmniParserClient:
 
         som_image_data = base64.b64decode(response_json['som_image_base64'])
         annotated_image = Image.open(BytesIO(som_image_data))
-        # screenshot_path_uuid = Path(screenshot_path).stem.replace("screenshot_", "")
-        # som_screenshot_path = f"{OUTPUT_DIR}/screenshot_som_{screenshot_path_uuid}.png"
-        # with open(som_screenshot_path, "wb") as f:
-        #     f.write(som_image_data)
 
-        # response_json['width'] = screenshot.size[0]
-        # response_json['height'] = screenshot.size[1]
-        # response_json['original_screenshot_base64'] = image_base64
-        # response_json['screenshot_uuid'] = screenshot_path_uuid
         response_json = self.reformat_messages(response_json)
-        # return response_json
+
         return ParsedScreenshot(
             response_json['parsed_content_list'],
             screenshot,

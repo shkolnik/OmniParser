@@ -1,27 +1,16 @@
 import asyncio
-from typing import Any, Dict, cast
+from typing import Any, cast
 from collections.abc import Callable
-from anthropic.types.beta import (
-    BetaContentBlock,
-    BetaContentBlockParam,
-    BetaImageBlockParam,
-    BetaMessage,
-    BetaMessageParam,
-    BetaTextBlockParam,
-    BetaToolResultBlockParam,
-)
-from anthropic.types import TextBlock
-from anthropic.types.beta import BetaMessage, BetaTextBlock, BetaToolUseBlock
-# from anthropic.types.tool_use_block import ToolUseBlock
+from anthropic.types.beta import BetaToolUseBlock
 from agent.llm_utils.utils import ToolResultMessage
-from tools import ComputerTool, ToolCollection, ToolResult
+from tools import ComputerTool, ToolCollection
 
 
 class AnthropicExecutor:
     def __init__(
         self,
         computer_client,
-        output_callback: Callable[[BetaContentBlockParam], None],
+        output_callback: Callable[[Any], None],
         tool_output_callback: Callable[[Any, str], None],
     ):
         self.tool_collection = ToolCollection(
@@ -31,30 +20,8 @@ class AnthropicExecutor:
         self.tool_output_callback = tool_output_callback
 
     def __call__(self, requested_action: BetaToolUseBlock): #, messages: list[BetaMessageParam]):
-        # new_message = {
-        #     "role": "assistant",
-        #     "content": cast(list[BetaContentBlockParam], response.content),
-        # }
-        # if new_message not in messages:
-        #     messages.append(new_message)
-        # else:
-        #     print("new_message already in messages, there are duplicates.")
-
-        # tool_result_content: list[BetaToolResultBlockParam] = []
-        # for content_block in cast(list[BetaContentBlock], response.content):
-        #     # TODO Turn this into a normal list of messages
-        #     if isinstance(content_block, BetaTextBlock) or isinstance(content_block, TextBlock):
-        #         # return f"Analysis: {content_block.text}"
-        #         self.output_callback(f"Analysis: {content_block.text}", sender="bot")
-        #     elif isinstance(content_block, BetaToolUseBlock) or isinstance(content_block, ToolUseBlock):
-        #         # return f"Tool Use: {message.name}\nInput: {message.input}"
-        #         # return f"Next I will perform the following action: {content_block.input}"
         self.output_callback(f"Next I will perform the following action: {requested_action.input}", sender="bot")
-            # else:
-            #     raise "uh oh"
 
-            # Execute the tool
-            # if content_block.type == "tool_use":
         # Run the asynchronous tool execution in a synchronous context
         result = asyncio.run(self.tool_collection.run(
             name=requested_action.name,
@@ -63,85 +30,64 @@ class AnthropicExecutor:
 
         self.output_callback(result, sender="bot")
 
-        tool_result_message = ToolResultMessage(result.output or result.error)
-        return tool_result_message
-        # tool_result_content.append(
-        #     _make_api_tool_result(result, content_block.id)
-        # )
-        # self.tool_output_callback(result, content_block.id)
+        return ToolResultMessage(result.output or result.error)
 
-            # Craft messages based on the content_block
-            # Note: to display the messages in the gradio, you should organize the messages in the following way (user message, bot message)
+# def _message_display_callback(messages):
+#     display_messages = []
+#     for msg in messages:
+#         try:
+#             if isinstance(msg["content"][0], TextBlock):
+#                 display_messages.append((msg["content"][0].text, None))  # User message
+#             elif isinstance(msg["content"][0], BetaTextBlock):
+#                 display_messages.append((None, msg["content"][0].text))  # Bot message
+#             elif isinstance(msg["content"][0], BetaToolUseBlock):
+#                 display_messages.append((None, f"Tool Use: {msg['content'][0].name}\nInput: {msg['content'][0].input}"))  # Bot message
+#             elif isinstance(msg["content"][0], Dict) and msg["content"][0]["content"][-1]["type"] == "image":
+#                 display_messages.append((None, f'<img src="data:image/png;base64,{msg["content"][0]["content"][-1]["source"]["data"]}">'))  # Bot message
+#             else:
+#                 print(msg["content"][0])
+#         except Exception as e:
+#             print("error", e)
+#             pass
+#     return display_messages
 
-            # display_messages = _message_display_callback(messages)
-            # display_messages = []
-
-            # Send the messages to the gradio
-            # for user_msg, bot_msg in display_messages:
-            #     # yield [user_msg, bot_msg], tool_result_content
-            #     yield [None, None], tool_result_content
-
-        # if not tool_result_content:
-        #     return messages
-
-        # return tool_result_content
-
-def _message_display_callback(messages):
-    display_messages = []
-    for msg in messages:
-        try:
-            if isinstance(msg["content"][0], TextBlock):
-                display_messages.append((msg["content"][0].text, None))  # User message
-            elif isinstance(msg["content"][0], BetaTextBlock):
-                display_messages.append((None, msg["content"][0].text))  # Bot message
-            elif isinstance(msg["content"][0], BetaToolUseBlock):
-                display_messages.append((None, f"Tool Use: {msg['content'][0].name}\nInput: {msg['content'][0].input}"))  # Bot message
-            elif isinstance(msg["content"][0], Dict) and msg["content"][0]["content"][-1]["type"] == "image":
-                display_messages.append((None, f'<img src="data:image/png;base64,{msg["content"][0]["content"][-1]["source"]["data"]}">'))  # Bot message
-            else:
-                print(msg["content"][0])
-        except Exception as e:
-            print("error", e)
-            pass
-    return display_messages
-
-def _make_api_tool_result(
-    result: ToolResult, tool_use_id: str
-) -> BetaToolResultBlockParam:
-    """Convert an agent ToolResult to an API ToolResultBlockParam."""
-    tool_result_content: list[BetaTextBlockParam | BetaImageBlockParam] | str = []
-    is_error = False
-    if result.error:
-        is_error = True
-        tool_result_content = _maybe_prepend_system_tool_result(result, result.error)
-    else:
-        if result.output:
-            tool_result_content.append(
-                {
-                    "type": "text",
-                    "text": _maybe_prepend_system_tool_result(result, result.output),
-                }
-            )
-        if result.base64_image:
-            tool_result_content.append(
-                {
-                    "type": "image",
-                    "source": {
-                        "type": "base64",
-                        "media_type": "image/png",
-                        "data": result.base64_image,
-                    },
-                }
-            )
-    return {
-        "type": "tool_result",
-        "content": tool_result_content,
-        "tool_use_id": tool_use_id,
-        "is_error": is_error,
-    }
+# def _make_api_tool_result(
+#     result: ToolResult, tool_use_id: str
+# ) -> BetaToolResultBlockParam:
+#     """Convert an agent ToolResult to an API ToolResultBlockParam."""
+#     tool_result_content: list[BetaTextBlockParam | BetaImageBlockParam] | str = []
+#     is_error = False
+#     if result.error:
+#         is_error = True
+#         tool_result_content = _maybe_prepend_system_tool_result(result, result.error)
+#     else:
+#         if result.output:
+#             tool_result_content.append(
+#                 {
+#                     "type": "text",
+#                     "text": _maybe_prepend_system_tool_result(result, result.output),
+#                 }
+#             )
+#         if result.base64_image:
+#             tool_result_content.append(
+#                 {
+#                     "type": "image",
+#                     "source": {
+#                         "type": "base64",
+#                         "media_type": "image/png",
+#                         "data": result.base64_image,
+#                     },
+#                 }
+#             )
+#     return {
+#         "type": "tool_result",
+#         "content": tool_result_content,
+#         "tool_use_id": tool_use_id,
+#         "is_error": is_error,
+#     }
 
 
-def _maybe_prepend_system_tool_result(result: ToolResult, result_text: str):
-    if result.system:
-        result_text = f"<system>{result.system}</system>\n{result_text}"
-    return result_text
+# def _maybe_prepend_system_tool_result(result: ToolResult, result_text: str):
+#     if result.system:
+#         result_text = f"<system>{result.system}</system>\n{result_text}"
+#     return result_text
