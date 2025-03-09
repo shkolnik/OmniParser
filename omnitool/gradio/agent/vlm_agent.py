@@ -11,7 +11,7 @@ from anthropic.types.beta import BetaToolUseBlock, BetaMessageParam
 
 from agent.llm_utils.oaiclient import run_oai_interleaved
 from agent.llm_utils.groqclient import run_groq_interleaved
-from agent.llm_utils.utils import is_image_path, UserMessage, BotMessage, ToolResultMessage, ParsedScreenshot
+from agent.llm_utils.utils import UserMessage, BotMessage, ToolResultMessage, ParsedScreenshot
 import time
 import re
 
@@ -84,7 +84,8 @@ class VLMAgent:
         system = self._get_system_prompt(boxids_and_labels)
 
         messages_for_llm = []
-        for message in messages:
+        screenshot_count = 0
+        for message in reversed(messages):
             if type(message) is UserMessage:
                 messages_for_llm.append({
                     "role": 'user',
@@ -101,6 +102,8 @@ class VLMAgent:
                     "content": message.content
                 })
             elif type(message) is ParsedScreenshot:
+                if screenshot_count >= self.only_n_most_recent_images:
+                    continue
                 buffer = BytesIO()
                 message.annotated_image.save(buffer, format="PNG")
                 base64_image = base64.b64encode(buffer.getvalue()).decode("utf-8")
@@ -113,12 +116,8 @@ class VLMAgent:
                         },
                     },
                 })
-
-        # drop looping actions msg, byte image etc
-        # planner_messages = messages.copy()
-        # planner_messages = messages
-        # _remove_som_images(planner_messages)
-        # _maybe_filter_to_n_most_recent_images(planner_messages, self.only_n_most_recent_images)
+                screenshot_count += 1
+        messages_for_llm.reverse()
 
         start = time.time()
         if "gpt" in self.model or "o1" in self.model or "o3-mini" in self.model:
@@ -325,62 +324,3 @@ IMPORTANT NOTES:
 """
 
         return main_section
-
-def _remove_som_images(messages):
-    for msg in messages:
-        msg_content = msg["content"]
-        if isinstance(msg_content, list):
-            msg["content"] = [
-                cnt for cnt in msg_content
-                if not (isinstance(cnt, str) and 'som' in cnt and is_image_path(cnt))
-            ]
-
-
-def _maybe_filter_to_n_most_recent_images(
-    messages: list[BetaMessageParam],
-    images_to_keep: int,
-    min_removal_threshold: int = 10,
-):
-    """
-    With the assumption that images are screenshots that are of diminishing value as
-    the conversation progresses, remove all but the final `images_to_keep` tool_result
-    images in place
-    """
-    if images_to_keep is None:
-        return messages
-
-    total_images = 0
-    for msg in messages:
-        for cnt in msg.get("content", []):
-            if isinstance(cnt, str) and is_image_path(cnt):
-                total_images += 1
-            elif isinstance(cnt, dict) and cnt.get("type") == "tool_result":
-                for content in cnt.get("content", []):
-                    if isinstance(content, dict) and content.get("type") == "image":
-                        total_images += 1
-
-    images_to_remove = total_images - images_to_keep
-
-    for msg in messages:
-        msg_content = msg["content"]
-        if isinstance(msg_content, list):
-            new_content = []
-            for cnt in msg_content:
-                # Remove images from SOM or screenshot as needed
-                if isinstance(cnt, str) and is_image_path(cnt):
-                    if images_to_remove > 0:
-                        images_to_remove -= 1
-                        continue
-                # VLM shouldn't use anthropic screenshot tool so shouldn't have these but in case it does, remove as needed
-                elif isinstance(cnt, dict) and cnt.get("type") == "tool_result":
-                    new_tool_result_content = []
-                    for tool_result_entry in cnt.get("content", []):
-                        if isinstance(tool_result_entry, dict) and tool_result_entry.get("type") == "image":
-                            if images_to_remove > 0:
-                                images_to_remove -= 1
-                                continue
-                        new_tool_result_content.append(tool_result_entry)
-                    cnt["content"] = new_tool_result_content
-                # Append fixed content to current message's content list
-                new_content.append(cnt)
-            msg["content"] = new_content
