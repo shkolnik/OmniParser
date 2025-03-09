@@ -11,13 +11,11 @@ class AnthropicExecutor:
         self,
         computer_client,
         output_callback: Callable[[Any], None],
-        tool_output_callback: Callable[[Any, str], None],
     ):
         self.tool_collection = ToolCollection(
             ComputerTool(computer_client)
         )
         self.output_callback = output_callback
-        self.tool_output_callback = tool_output_callback
 
     def __call__(self, requested_action: BetaToolUseBlock): #, messages: list[BetaMessageParam]):
         self.output_callback(f"Next I will perform the following action: {requested_action.input}", sender="bot")

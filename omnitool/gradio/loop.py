@@ -45,8 +45,6 @@ def sampling_loop_sync(
     provider: APIProvider | None,
     messages: list[BetaMessageParam],
     output_callback: Callable[[BetaContentBlock], None],
-    tool_output_callback: Callable[[ToolResult, str], None],
-    api_response_callback: Callable[[APIResponse[BetaMessage]], None],
     api_key: str,
     only_n_most_recent_images: int | None = 2,
     max_tokens: int = 4096,
@@ -70,7 +68,6 @@ def sampling_loop_sync(
             model=model,
             provider=provider,
             api_key=api_key,
-            api_response_callback=api_response_callback,
             max_tokens=max_tokens,
             only_n_most_recent_images=only_n_most_recent_images
         )
@@ -79,7 +76,6 @@ def sampling_loop_sync(
             model=model,
             provider=provider,
             api_key=api_key,
-            api_response_callback=api_response_callback,
             output_callback=output_callback,
             max_tokens=max_tokens,
             only_n_most_recent_images=only_n_most_recent_images
@@ -89,7 +85,6 @@ def sampling_loop_sync(
     executor = AnthropicExecutor(
         computer_client=computer_client,
         output_callback=output_callback,
-        tool_output_callback=tool_output_callback,
     )
     print(f"Model Inited: {model}, Provider: {provider}")
 

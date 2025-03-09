@@ -33,7 +33,6 @@ class VLMAgent:
         provider: str,
         api_key: str,
         output_callback: Callable,
-        api_response_callback: Callable,
         max_tokens: int = 4096,
         only_n_most_recent_images: int | None = None,
         print_usage: bool = True,
@@ -54,7 +53,6 @@ class VLMAgent:
 
         self.provider = provider
         self.api_key = api_key
-        self.api_response_callback = api_response_callback
         self.max_tokens = max_tokens
         self.only_n_most_recent_images = only_n_most_recent_images
         self.output_callback = output_callback
@@ -235,9 +233,6 @@ class VLMAgent:
             {'system_prompt': system, 'messages': messages_for_llm},
             requested_actions
         )
-
-    def _api_response_callback(self, response: APIResponse):
-        self.api_response_callback(response)
 
     def _get_system_prompt(self, screen_info: str = ""):
         main_section = f"""

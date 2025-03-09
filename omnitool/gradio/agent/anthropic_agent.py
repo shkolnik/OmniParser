@@ -51,7 +51,6 @@ class AnthropicActor:
         model: str,
         provider: APIProvider,
         api_key: str,
-        api_response_callback: Callable[[APIResponse[BetaMessage]], None],
         max_tokens: int = 4096,
         only_n_most_recent_images: int | None = None,
         print_usage: bool = True,
@@ -59,7 +58,6 @@ class AnthropicActor:
         self.model = model
         self.provider = provider
         self.api_key = api_key
-        self.api_response_callback = api_response_callback
         self.max_tokens = max_tokens
         self.only_n_most_recent_images = only_n_most_recent_images
 
@@ -105,7 +103,6 @@ class AnthropicActor:
             betas=["computer-use-2024-10-22"],
         )
 
-        self.api_response_callback(cast(APIResponse[BetaMessage], raw_response))
 
         response = raw_response.parse()
         print(f"AnthropicActor response: {response}")

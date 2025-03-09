@@ -162,13 +162,6 @@ def save_to_storage(filename: str, data: str) -> None:
     except Exception as e:
         print(f"Debug: Error saving {filename}: {e}")
 
-def _api_response_callback(response: APIResponse[BetaMessage], response_state: dict):
-    response_id = datetime.now().isoformat()
-    response_state[response_id] = response
-
-def _tool_output_callback(tool_output: ToolResult, tool_id: str, tool_state: dict):
-    tool_state[tool_id] = tool_output
-
 def chatbot_output_callback(message, chatbot_state, hide_images=False, sender="bot"):
     def _render_message(message: str | BetaTextBlock | BetaToolUseBlock | ToolResult, hide_images=False):
 
@@ -281,8 +274,6 @@ def process_input(user_input, state):
         provider=state["provider"],
         messages=state["messages"],
         output_callback=partial(chatbot_output_callback, chatbot_state=state['chatbot_messages'], hide_images=False),
-        tool_output_callback=partial(_tool_output_callback, tool_state=state["tools"]),
-        api_response_callback=partial(_api_response_callback, response_state=state["responses"]),
         api_key=state["api_key"],
         only_n_most_recent_images=state["only_n_most_recent_images"],
         # max_tokens=16384,
