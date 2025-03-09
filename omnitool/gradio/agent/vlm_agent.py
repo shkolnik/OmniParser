@@ -107,7 +107,18 @@ class VLMAgent:
                     "content": message.content
                 })
             elif type(message) is ParsedScreenshot:
-                None
+                buffer = BytesIO()
+                message.annotated_image.save(buffer, format="PNG")
+                base64_image = base64.b64encode(buffer.getvalue()).decode("utf-8")
+                messages_for_llm.append({
+                    "role": 'tool',
+                    "content": {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/png;base64,{base64_image}"
+                        },
+                    },
+                })
 
         # drop looping actions msg, byte image etc
         # planner_messages = messages.copy()
