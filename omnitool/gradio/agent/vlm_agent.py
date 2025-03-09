@@ -34,33 +34,37 @@ def format_messages_for_llm(messages, screenshots_to_keep: int):
         if type(message) is UserMessage:
             messages_for_llm.append({
                 "role": 'user',
-                "content": message.content
+                "content": [{"text": message.content, "type": "text"}]
             })
         elif type(message) is BotMessage:
+            content = [{"text": message.content, "type": "text"}]
+            for requested_action in message.requested_actions:
+                content.append(requested_action.to_dict())
             messages_for_llm.append({
                 "role": 'assistant',
-                "content": message.content
+                "content": content
             })
         elif type(message) is ToolResultMessage:
-            messages_for_llm.append({
-                "role": 'tool',
-                "content": message.content
-            })
+            None
+            # messages_for_llm.append({
+            #     "role": 'tool',
+            #     "content": message.content
+            # })
         elif type(message) is ParsedScreenshot:
             if screenshot_count >= screenshots_to_keep:
                 continue
             buffer = BytesIO()
             message.annotated_image.save(buffer, format="PNG")
             base64_image = base64.b64encode(buffer.getvalue()).decode("utf-8")
-            messages_for_llm.append({
-                "role": 'tool',
-                "content": {
-                    "type": "image_url",
-                    "image_url": {
-                        "url": f"data:image/png;base64,{base64_image}"
-                    },
-                },
-            })
+            # messages_for_llm.append({
+            #     "role": 'tool',
+            #     "content": {
+            #         "type": "image_url",
+            #         "image_url": {
+            #             "url": f"data:image/png;base64,{base64_image}"
+            #         },
+            #     },
+            # })
             screenshot_count += 1
     messages_for_llm.reverse()
     return messages_for_llm
