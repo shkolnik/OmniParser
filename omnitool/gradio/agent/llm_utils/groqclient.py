@@ -9,7 +9,7 @@ def run_groq_interleaved(messages: list, system: str, model_name: str, api_key: 
     api_key = api_key or os.environ.get("GROQ_API_KEY")
     if not api_key:
         raise ValueError("GROQ_API_KEY is not set")
-    
+
     client = Groq(api_key=api_key)
     # avoid using system messages for R1
     final_messages = [{"role": "user", "content": system}]
@@ -25,14 +25,14 @@ def run_groq_interleaved(messages: list, system: str, model_name: str, api_key: 
                             text_contents.append(cnt)
                     else:
                         text_contents.append(str(cnt))
-                
+
                 if text_contents:  # Only add if there's text content
                     message = {"role": "user", "content": " ".join(text_contents)}
                     final_messages.append(message)
             else:  # str
                 message = {"role": "user", "content": item}
                 final_messages.append(message)
-    
+
     elif isinstance(messages, str):
         final_messages.append({"role": "user", "content": messages})
 
@@ -46,14 +46,37 @@ def run_groq_interleaved(messages: list, system: str, model_name: str, api_key: 
             stream=False,
             reasoning_format="raw"
         )
-        
+
         response = completion.choices[0].message.content
         final_answer = response.split('</think>\n')[-1] if '</think>' in response else response
         final_answer = final_answer.replace("<output>", "").replace("</output>", "")
         token_usage = completion.usage.total_tokens
-        
+
         return final_answer, token_usage
     except Exception as e:
         print(f"Error in interleaved Groq: {e}")
 
         return str(e), 0
+
+class GroqClient:
+    def __init__(self, model_name, api_key, max_tokens):
+        self.model_name: str = model_name
+        self.api_key: str  = api_key
+        self.max_tokens: int = max_tokens
+        self.total_token_usage: int = 0
+        self.total_cost: float = 0.0
+
+    def request(self, system, messages):
+        vlm_response, token_usage = run_groq_interleaved(
+            messages=messages,
+            system=system,
+            model_name=self.model,
+            api_key=self.api_key,
+            max_tokens=self.max_tokens,
+        )
+        print(f"groq token usage: {token_usage}")
+        self.total_token_usage += token_usage
+        return vlm_response
+
+    def total_cost(self) -> float:
+        return self.total_token_usage * 0.99 / 1000000
