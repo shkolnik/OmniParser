@@ -61,6 +61,7 @@ def sampling_loop_sync(
 
     computer_client = VNCClient(vm_url)
     omniparser_client = OmniParserClient(url=f"http://{omniparser_url}/parse/", computer_client=computer_client)
+
     if model == "claude-3-5-sonnet-20241022":
         # Register Actor and Executor
         actor = AnthropicActor(
@@ -82,14 +83,13 @@ def sampling_loop_sync(
         )
     else:
         raise ValueError(f"Model {model} not supported")
+
     executor = AnthropicExecutor(
         computer_client=computer_client,
         output_callback=output_callback,
     )
+
     print(f"Model Inited: {model}, Provider: {provider}")
-
-    # tool_result_content = None
-
     print(f"Start the message loop. User messages: {messages}")
 
     # Main loop
@@ -111,13 +111,6 @@ def sampling_loop_sync(
             yield(tool_result_message)
 
         time.sleep(1)
-        # for message, tool_result_content in executor(tools_use_needed, messages):
-        #     yield message
-
-        # if not tool_result_content:
-        #     return messages
 
         # if model == "claude-3-5-sonnet-20241022":
         #     messages.append({"content": tool_result_content, "role": "user"})
-
-    # computer_client.shutdown()
