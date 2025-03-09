@@ -96,16 +96,19 @@ def sampling_loop_sync(
     while True:
         parsed_screen: ParsedScreenshot = omniparser_client()
         session_history.append(parsed_screen)
+        yield(parsed_screen)
         # tools_use_needed = actor(messages=messages, parsed_screen=parsed_screen)
         bot_message: BotMessage = actor(session_history)
         session_history.append(bot_message)
+        yield(bot_message)
 
         if len(bot_message.requested_actions) == 0:
-            return
+            return []
 
         for requested_action in bot_message.requested_actions:
             tool_result_message: ToolResultMessage = executor(requested_action)
             session_history.append(tool_result_message)
+            yield(tool_result_message)
 
         time.sleep(1)
         # for message, tool_result_content in executor(tools_use_needed, messages):
