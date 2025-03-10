@@ -2,7 +2,7 @@ import json
 from collections.abc import Callable
 from typing import cast, Callable
 import uuid
-from PIL import ImageDraw
+from PIL import Image, ImageDraw
 import base64
 from io import BytesIO
 
@@ -27,6 +27,17 @@ def extract_data(input_string, data_type):
     # Return the first match if exists, trimming whitespace and ignoring potential closing backticks
     return matches[0][0].strip() if matches else input_string
 
+def encode_image_as_message(image: Image.Image):
+    buffer = BytesIO()
+    image.save(buffer, format="PNG")
+    base64_image = base64.b64encode(buffer.getvalue()).decode("utf-8")
+    return {
+        "type": "image_url",
+        "image_url": {
+            "url": f"data:image/png;base64,{base64_image}"
+        }
+    }
+
 def format_messages_for_llm(messages, screenshots_to_keep: int):
     messages_for_llm = []
     screenshot_count = 0
@@ -39,7 +50,7 @@ def format_messages_for_llm(messages, screenshots_to_keep: int):
         elif type(message) is BotMessage:
             content = [{"text": message.content, "type": "text"}]
             for requested_action in message.requested_actions:
-                content.append(requested_action.to_dict())
+                content.append({"text": requested_action.to_json(), "type": "text"})
             messages_for_llm.append({
                 "role": 'assistant',
                 "content": content
@@ -53,18 +64,19 @@ def format_messages_for_llm(messages, screenshots_to_keep: int):
         elif type(message) is ParsedScreenshot:
             if screenshot_count >= screenshots_to_keep:
                 continue
-            buffer = BytesIO()
-            message.annotated_image.save(buffer, format="PNG")
-            base64_image = base64.b64encode(buffer.getvalue()).decode("utf-8")
-            # messages_for_llm.append({
-            #     "role": 'tool',
-            #     "content": {
-            #         "type": "image_url",
-            #         "image_url": {
-            #             "url": f"data:image/png;base64,{base64_image}"
-            #         },
-            #     },
-            # })
+            # messages_for_llm[-1]["content"].append(encode_image_as_message(message.original_image))
+            screenshot_msg = {
+                "role": 'user',
+                "content": [encode_image_as_message(message.original_image)],
+            }
+            if screenshot_count == 0:
+                # messages_for_llm[-1]["content"].append(encode_image_as_message(message.annotated_image))
+                screenshot_msg["content"].append(encode_image_as_message(message.annotated_image))
+                screenshot_text = 'These images are the current state of the display of the computer you are controlling. Both images represent the same screen at the same moment in time, but the second image is annotated with numbered bounding boxes corresponding to those described in the system prompt.'
+            else:
+                screenshot_text = 'This image was a previous state of the display of the computer you are controlling (at an earlier step in the process).'
+            screenshot_msg["content"].insert(0, {"text": screenshot_text, "type": "text"})
+            messages_for_llm.append(screenshot_msg)
             screenshot_count += 1
     messages_for_llm.reverse()
     return messages_for_llm

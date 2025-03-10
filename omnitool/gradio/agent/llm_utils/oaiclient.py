@@ -11,32 +11,32 @@ def run_oai_interleaved(messages: list, system: str, model_name: str, api_key: s
 
     if type(messages) == list:
         for item in messages:
-            contents = []
-            if isinstance(item, dict):
-                for cnt in item["content"]:
-                    if isinstance(cnt, str):
-                        if is_image_path(cnt) and 'o3-mini' not in model_name:
-                            # 03 mini does not support images
-                            base64_image = encode_image(cnt)
-                            content = {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
-                        else:
-                            content = {"type": "text", "text": cnt}
-                    else:
-                        # in this case it is a text block from anthropic
-                        content = {"type": "text", "text": str(cnt)}
+            # contents = []
+            # if isinstance(item, dict):
+            #     for cnt in item["content"]:
+            #         if isinstance(cnt, str):
+            #             if is_image_path(cnt) and 'o3-mini' not in model_name:
+            #                 # 03 mini does not support images
+            #                 base64_image = encode_image(cnt)
+            #                 content = {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
+            #             else:
+            #                 content = {"type": "text", "text": cnt}
+            #         else:
+            #             # in this case it is a text block from anthropic
+            #             content = {"type": "text", "text": str(cnt)}
 
-                    contents.append(content)
+            #         contents.append(content)
 
-                message = {"role": 'user', "content": contents}
-            else:  # str
-                contents.append({"type": "text", "text": item})
-                message = {"role": "user", "content": contents}
+            #     message = {"role": 'user', "content": contents}
+            # else:  # str
+            #     contents.append({"type": "text", "text": item})
+            #     message = {"role": "user", "content": contents}
 
-            final_messages.append(message)
+            final_messages.append(item)
 
 
     elif isinstance(messages, str):
-        final_messages = [{"role": "user", "content": messages}]
+        final_messages.append({"role": "user", "content": messages})
 
     payload = {
         "model": model_name,
