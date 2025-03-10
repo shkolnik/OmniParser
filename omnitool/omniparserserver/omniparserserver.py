@@ -47,5 +47,5 @@ async def parse(parse_request: ParseRequest):
 async def root():
     return {"message": "Omniparser API ready"}
 
-if __name__ == "__main__":
-    uvicorn.run("omniparserserver:app", host=args.host, port=args.port, reload=True)
+if __name__ == "__main__" and not "OMNIPARSER_DOWNLOAD_ONLY" in os.environ:
+    uvicorn.run("omniparserserver:app", host=args.host, port=args.port, reload=False)
