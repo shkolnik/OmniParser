@@ -7,7 +7,12 @@ from typing import Dict
 class Omniparser(object):
     def __init__(self, config: Dict):
         self.config = config
-        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        if torch.cuda.is_available():
+            device = 'cuda'
+        elif torch.mps.is_available():
+            device = 'mps'
+        else:
+            device = 'cpu'
 
         self.som_model = get_yolo_model(model_path=config['som_model_path'])
         self.caption_model_processor = get_caption_model_processor(model_name=config['caption_model_name'], model_name_or_path=config['caption_model_path'], device=device)
