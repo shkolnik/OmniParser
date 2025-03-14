@@ -22,7 +22,7 @@ class Omniparser(object):
         image_bytes = base64.b64decode(image_base64)
         image = Image.open(io.BytesIO(image_bytes))
         print('image size:', image.size)
-
+        
         box_overlay_ratio = max(image.size) / 3200
         draw_bbox_config = {
             'text_scale': 0.8 * box_overlay_ratio,
