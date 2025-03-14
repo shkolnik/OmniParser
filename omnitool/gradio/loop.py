@@ -60,7 +60,7 @@ def sampling_loop_sync(
     session_history = [initial_request]
 
     computer_client = VNCClient(vm_url)
-    omniparser_client = OmniParserClient(url=f"http://{omniparser_url}/parse/", computer_client=computer_client)
+    omniparser_client = OmniParserClient(url=f"{omniparser_url}/parse/", computer_client=computer_client)
 
     if model == "claude-3-5-sonnet-20241022":
         # Register Actor and Executor
