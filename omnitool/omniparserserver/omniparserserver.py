@@ -47,5 +47,7 @@ async def parse(parse_request: ParseRequest):
 async def root():
     return {"message": "Omniparser API ready"}
 
-if __name__ == "__main__":
-    uvicorn.run("omniparserserver:app", host=args.host, port=args.port, reload=True)
+if __name__ == "__main__" and not "OMNIPARSER_DOWNLOAD_ONLY" in os.environ:
+    # OMNIPARSER_DOWNLOAD_ONLY flag used to boot app and download dependencies
+    # during Docker build without running the server daemon.
+    uvicorn.run("omniparserserver:app", host=args.host, port=args.port, reload=False)
