@@ -22,7 +22,14 @@ from models.utils import get_som_labeled_img, check_ocr_box, get_caption_model_p
 import torch
 from ultralytics import YOLO
 from PIL import Image
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+if torch.cuda.is_available():
+    device = 'cuda'
+elif torch.mps.is_available():
+    device = 'mps'
+else:
+    device = 'cpu'
+
 SOM_MODEL_PATH='...'
 CAPTION_MODEL_PATH='...'
 som_model = get_yolo_model(SOM_MODEL_PATH)
@@ -49,7 +56,7 @@ def omniparser_parse(image, image_path):
 
     dino_labled_img, label_coordinates, parsed_content_list = get_som_labeled_img(image_path, som_model, BOX_TRESHOLD = BOX_TRESHOLD, output_coord_in_ratio=True, ocr_bbox=ocr_bbox,draw_bbox_config=draw_bbox_config, caption_model_processor=caption_model_processor, ocr_text=text,use_local_semantics=True, iou_threshold=0.7, scale_img=False, batch_size=128)
     return dino_labled_img, label_coordinates, parsed_content_list
-    
+
 def reformat_messages(parsed_content_list):
     screen_info = ""
     for idx, element in enumerate(parsed_content_list):
@@ -62,9 +69,9 @@ def reformat_messages(parsed_content_list):
             # screen_info += f'ID: {idx}, Icon: {element["content"]}\n'
     return screen_info
 
-PROMPT_TEMPLATE_SEECLICK_PARSED_CONTENT = '''Please generate the next move according to the UI screenshot and task instruction. You will be presented with a screenshot image. Also you will be given each bounding box's description in a list. To complete the task, You should choose a related bbox to click based on the bbox descriptions. 
-Task instruction: {}. 
-Here is the list of all detected bounding boxes by IDs and their descriptions: {}. Keep in mind the description for Text Boxes are likely more accurate than the description for Icon Boxes. 
+PROMPT_TEMPLATE_SEECLICK_PARSED_CONTENT = '''Please generate the next move according to the UI screenshot and task instruction. You will be presented with a screenshot image. Also you will be given each bounding box's description in a list. To complete the task, You should choose a related bbox to click based on the bbox descriptions.
+Task instruction: {}.
+Here is the list of all detected bounding boxes by IDs and their descriptions: {}. Keep in mind the description for Text Boxes are likely more accurate than the description for Icon Boxes.
 Requirement: 1. You should first give a reasonable description of the current screenshot, and give a short analysis of how can the user task be achieved. 2. Then make an educated guess of bbox id to click in order to complete the task based on the bounding boxes descriptions. 3. Your answer should follow the following format: {{"Analysis": xxx, "Click BBox ID": "y"}}. Do not include any other info. Some examples: {}. The task is to {}. Retrieve the bbox id where its description matches the task instruction. Now start your answer:'''
 
 # PROMPT_TEMPLATE_SEECLICK_PARSED_CONTENT_v1 = "The instruction is to {}. \nHere is the list of all detected bounding boxes by IDs and their descriptions: {}. \nKeep in mind the description for Text Boxes are likely more accurate than the description for Icon Boxes. \n Requirement: 1. You should first give a reasonable description of the current screenshot, and give a step by step analysis of how can the user task be achieved. 2. Then make an educated guess of bbox id to click in order to complete the task using both the visual information from the screenshot image and the bounding boxes descriptions. 3. Your answer should follow the following format: {{'Analysis': 'xxx', 'Click BBox ID': 'y'}}. Please do not include any other info."
@@ -92,7 +99,7 @@ class GPT4XModel():
 
     def load_model(self):
         pass
-    
+
     def set_generation_config(self, **kwargs):
         self.override_generation_config.update(kwargs)
 
@@ -102,7 +109,7 @@ class GPT4XModel():
             assert os.path.exists(image_path) and os.path.isfile(image_path), "Invalid input image path."
             image = Image.open(image_path).convert('RGB')
         assert isinstance(image, Image.Image), "Invalid input image."
-        
+
         base64_image = convert_pil_image_to_base64(image)
         dino_labled_img, label_coordinates, parsed_content_list = omniparser_parse(image, image_path)
         screen_info = reformat_messages(parsed_content_list)
@@ -120,7 +127,7 @@ class GPT4XModel():
             'dino_labled_img': dino_labled_img,
             'screen_info': screen_info,
         }
-        
+
         return result_dict
 
     def ground_only_positive(self, instruction, image):
@@ -129,7 +136,7 @@ class GPT4XModel():
             assert os.path.exists(image_path) and os.path.isfile(image_path), "Invalid input image path."
             image = Image.open(image_path).convert('RGB')
         assert isinstance(image, Image.Image), "Invalid input image."
-        
+
         base64_image = convert_pil_image_to_base64(image)
         dino_labled_img, label_coordinates, parsed_content_list = omniparser_parse(image, image_path)
         screen_info = reformat_messages(parsed_content_list)
@@ -144,7 +151,7 @@ class GPT4XModel():
                         "role": "system",
                         "content": [
                             # {"type": "text", "text": "You are an expert in using electronic devices and interacting with graphic interfaces. You should not call any external tools."}
-                            {"type": "text", "text": '''You are an expert at completing instructions on GUI screens. 
+                            {"type": "text", "text": '''You are an expert at completing instructions on GUI screens.
                You will be presented with two images. The first is the original screenshot. The second is the same screenshot with some numeric tags. You will also be provided with some descriptions of the bbox, and your task is to choose the numeric bbox idx you want to click in order to complete the user instruction.'''}
                         ],
                     },
@@ -152,7 +159,7 @@ class GPT4XModel():
                         "role": "user",
                         "content": [
                             {
-                                "type": "text", 
+                                "type": "text",
                                 "text": prompt_origin
 
                             },
@@ -188,14 +195,14 @@ class GPT4XModel():
         # Try getting groundings
         # bbox = extract_first_bounding_box(response_text)
         # click_point = extract_first_point(response_text)
-        
+
         # if not click_point and bbox:
         #     click_point = [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2]
         response_text = response_text.replace('```json', '').replace('```', '') #TODO: fix this
 
         try:
             response_text = ast.literal_eval(response_text)
-            
+
             icon_id = response_text['Click BBox ID']
             bbox = label_coordinates[str(icon_id)]
             click_point = [bbox[0] + bbox[2]/2, bbox[1] + bbox[3]/2]
@@ -214,7 +221,7 @@ class GPT4XModel():
             'dino_labled_img': dino_labled_img,
             'screen_info': screen_info,
         }
-        
+
         return result_dict
 
     def ground_allow_negative(self, instruction, image=None):
@@ -223,7 +230,7 @@ class GPT4XModel():
             assert os.path.exists(image_path) and os.path.isfile(image_path), "Invalid input image path."
             image = Image.open(image_path).convert('RGB')
         assert isinstance(image, Image.Image), "Invalid input image."
-        
+
         base64_image = convert_pil_image_to_base64(image)
 
         try:
@@ -246,7 +253,7 @@ class GPT4XModel():
                                 }
                             },
                             {
-                                "type": "text", 
+                                "type": "text",
                                 "text": "You are asked to find the bounding box of an UI element in the given screenshot corresponding to a given instruction.\n"
                                         "Don't output any analysis. Output your result in the format of [[x0,y0,x1,y1]], with x and y ranging from 0 to 1. \n"
                                         "If such element does not exist, output only the text 'Target not existent'.\n"
@@ -280,11 +287,11 @@ class GPT4XModel():
                 "point": None,
                 "raw_response": response_text
             }
-        
+
         # Try getting groundings
         bbox = extract_first_bounding_box(response_text)
         click_point = extract_first_point(response_text)
-        
+
         if not click_point and bbox:
             click_point = [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2]
 
@@ -294,17 +301,17 @@ class GPT4XModel():
             "point": click_point,
             "raw_response": response_text
         }
-        
+
         return result_dict
 
-    
+
     def ground_with_uncertainty(self, instruction, image=None):
         if isinstance(image, str):
             image_path = image
             assert os.path.exists(image_path) and os.path.isfile(image_path), "Invalid input image path."
             image = Image.open(image_path).convert('RGB')
         assert isinstance(image, Image.Image), "Invalid input image."
-        
+
         base64_image = convert_pil_image_to_base64(image)
 
         try:
@@ -327,7 +334,7 @@ class GPT4XModel():
                                 }
                             },
                             {
-                                "type": "text", 
+                                "type": "text",
                                 "text": "You are asked to find the bounding box of an UI element in the given screenshot corresponding to a given instruction.\n"
                                         "- If such element does not exist in the screenshot, output only the text 'Target not existent'."
 
@@ -335,7 +342,7 @@ class GPT4XModel():
                                         "Please find out the bounding box of the UI element corresponding to the following instruction: \n"
                                         "The instruction is:\n"
                                         f"{instruction}\n"
-                                        
+
                             }
                         ],
                     }
@@ -364,11 +371,11 @@ class GPT4XModel():
                 "point": None,
                 "raw_response": response_text
             }
-        
+
         # Try getting groundings
         bbox = extract_first_bounding_box(response_text)
         click_point = extract_first_point(response_text)
-        
+
         if not click_point and bbox:
             click_point = [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2]
 
@@ -378,17 +385,17 @@ class GPT4XModel():
             "point": click_point,
             "raw_response": response_text
         }
-        
+
         return result_dict
 
 def extract_first_bounding_box(text):
     # Regular expression pattern to match the first bounding box in the format [[x0,y0,x1,y1]]
     # This captures the entire float value using \d for digits and optional decimal points
     pattern = r"\[\[(\d+\.\d+|\d+),(\d+\.\d+|\d+),(\d+\.\d+|\d+),(\d+\.\d+|\d+)\]\]"
-    
+
     # Search for the first match in the text
     match = re.search(pattern, text, re.DOTALL)
-    
+
     if match:
         # Capture the bounding box coordinates as floats
         bbox = [float(match.group(1)), float(match.group(2)), float(match.group(3)), float(match.group(4))]
@@ -400,12 +407,12 @@ def extract_first_point(text):
     # Regular expression pattern to match the first point in the format [[x0,y0]]
     # This captures the entire float value using \d for digits and optional decimal points
     pattern = r"\[\[(\d+\.\d+|\d+),(\d+\.\d+|\d+)\]\]"
-    
+
     # Search for the first match in the text
     match = re.search(pattern, text, re.DOTALL)
-    
+
     if match:
         point = [float(match.group(1)), float(match.group(2))]
         return point
-    
+
     return None
